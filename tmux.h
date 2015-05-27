@@ -2302,6 +2302,7 @@ char		*utf8_trimcstr(const char *, u_int);
 char		*osdep_get_name(int, char *);
 char		*osdep_get_cwd(int);
 struct event_base *osdep_event_init(void);
+int		 osdep_getloadavg(double[3]);
 
 /* log.c */
 void		 log_open(const char *);

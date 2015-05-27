@@ -18,6 +18,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/loadavg.h>
 
 #include <event.h>
 #include <fcntl.h>
@@ -98,4 +99,13 @@ struct event_base *
 osdep_event_init(void)
 {
 	return (event_init());
+}
+
+int
+osdep_getloadavg(double la[3])
+{
+	if (getloadavg(la, 3) != 3)
+		return (1);
+
+	return (0);
 }

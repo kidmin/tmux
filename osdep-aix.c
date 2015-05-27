@@ -39,3 +39,9 @@ osdep_event_init(void)
 {
 	return (event_init());
 }
+
+int
+osdep_getloadavg(double la[3])
+{
+	return (1);
+}

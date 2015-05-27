@@ -27,6 +27,7 @@
 char			*osdep_get_name(int, char *);
 char			*osdep_get_cwd(int);
 struct event_base	*osdep_event_init(void);
+int			 osdep_getloadavg(double[3]);
 
 #define unused __attribute__ ((unused))
 
@@ -77,4 +78,13 @@ osdep_event_init(void)
 	setenv("EVENT_NOKQUEUE", "1", 1);
 	setenv("EVENT_NOPOLL", "1", 1);
 	return (event_init());
+}
+
+int
+osdep_getloadavg(double la[3])
+{
+	if (getloadavg(la, 3) != 3)
+		return (1);
+
+	return (0);
 }

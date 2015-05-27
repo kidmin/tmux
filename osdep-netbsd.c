@@ -36,6 +36,7 @@ struct kinfo_proc2	*cmp_procs(struct kinfo_proc2 *, struct kinfo_proc2 *);
 char			*osdep_get_name(int, char *);
 char			*osdep_get_cwd(int);
 struct event_base	*osdep_event_init(void);
+int			 osdep_getloadavg(double[3]);
 
 struct kinfo_proc2 *
 cmp_procs(struct kinfo_proc2 *p1, struct kinfo_proc2 *p2)
@@ -134,4 +135,13 @@ struct event_base *
 osdep_event_init(void)
 {
 	return (event_init());
+}
+
+int
+osdep_getloadavg(double la[3])
+{
+	if (getloadavg(la, 3) != 3)
+		return (1);
+
+	return (0);
 }

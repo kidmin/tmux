@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
+#include <sys/sysinfo.h>
 
 #include <event.h>
 #include <stdio.h>
@@ -95,4 +96,19 @@ osdep_event_init(void)
 	/* On Linux, epoll doesn't work on /dev/null (yes, really). */
 	setenv("EVENT_NOEPOLL", "1", 1);
 	return (event_init());
+}
+
+int
+osdep_getloadavg(double la[3])
+{
+	struct sysinfo sinfo;
+
+	if (sysinfo(&sinfo) != 0)
+		return (1);
+
+	la[0] = sinfo.loads[0] / (double) (1 << SI_LOAD_SHIFT);
+	la[1] = sinfo.loads[1] / (double) (1 << SI_LOAD_SHIFT);
+	la[2] = sinfo.loads[2] / (double) (1 << SI_LOAD_SHIFT);
+
+	return (0);
 }

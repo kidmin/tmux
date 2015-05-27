@@ -88,7 +88,7 @@ const char *format_upper[] = {
 	"window_index",	/* I */
 	NULL,		/* J */
 	NULL,		/* K */
-	NULL,		/* L */
+	"load_average",	/* L */
 	NULL,		/* M */
 	NULL,		/* N */
 	NULL,		/* O */
@@ -141,6 +141,7 @@ format_create(void)
 {
 	struct format_tree	*ft;
 	char			 host[HOST_NAME_MAX+1], *ptr;
+	double			 la[3];
 
 	ft = xcalloc(1, sizeof *ft);
 	RB_INIT(&ft->tree);
@@ -151,6 +152,9 @@ format_create(void)
 			*ptr = '\0';
 		format_add(ft, "host_short", "%s", host);
 	}
+
+	if (osdep_getloadavg(la) == 0)
+		format_add(ft, "load_average", "%.2f %.2f %.2f", la[0], la[1], la[2]);
 
 	return (ft);
 }
