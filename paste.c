@@ -22,6 +22,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __GLIBC__
+#include <malloc.h>
+#endif
+
 #include "tmux.h"
 
 /*
@@ -127,6 +131,9 @@ paste_free_name(const char *name)
 	free(pb->data);
 	free(pb->name);
 	free(pb);
+#ifdef __GLIBC__
+	malloc_trim(0);
+#endif
 	return (0);
 }
 
@@ -233,6 +240,9 @@ paste_set(char *data, size_t size, const char *name, char **cause)
 
 	if (size == 0) {
 		free(data);
+#ifdef __GLIBC__
+		malloc_trim(0);
+#endif
 		return (0);
 	}
 	if (name == NULL) {
