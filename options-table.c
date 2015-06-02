@@ -578,6 +578,11 @@ const struct options_table_entry window_options_table[] = {
 	  .default_num = 0
 	},
 
+	{ .name = "output-encoding",
+	  .type = OPTIONS_TABLE_STRING,
+	  .default_str = "UTF-8"
+	},
+
 	{ .name = "pane-active-border-bg",
 	  .type = OPTIONS_TABLE_COLOUR,
 	  .default_num = 8,
