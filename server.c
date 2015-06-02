@@ -30,7 +30,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <syslog.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
@@ -129,9 +128,9 @@ server_start(int lockfd, char *lockfile)
 		fatal("daemon failed");
 
 	/* event_init() was called in our parent, need to reinit. */
+	clear_signals(0);
 	if (event_reinit(ev_base) != 0)
 		fatal("event_reinit failed");
-	clear_signals(0);
 
 	logfile("server");
 	log_debug("server started, pid %ld", (long) getpid());
