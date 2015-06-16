@@ -429,6 +429,7 @@ enum msgtype {
 	MSG_IDENTIFY_STDIN,
 	MSG_IDENTIFY_ENVIRON,
 	MSG_IDENTIFY_DONE,
+	MSG_IDENTIFY_CLIENTPID,
 
 	MSG_COMMAND = 200,
 	MSG_DETACH,
@@ -895,6 +896,7 @@ struct window {
 	char		*name;
 	struct event	 name_timer;
 	struct timeval	 silence_timer;
+	struct timeval	 activity_time;
 
 	struct window_pane *active;
 	struct window_pane *last;
@@ -1210,6 +1212,7 @@ RB_HEAD(status_out_tree, status_out);
 struct client {
 	struct imsgbuf	 ibuf;
 
+	pid_t		 pid;
 	int		 fd;
 	struct event	 event;
 	int		 retval;
