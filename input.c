@@ -18,6 +18,8 @@
 
 #include <sys/types.h>
 
+#include <errno.h>
+#include <iconv.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -88,6 +90,8 @@ struct input_ctx {
 #define INPUT_DISCARD 0x1
 
 	const struct input_state *state;
+	iconv_t			 iconv_ctx;
+	char			*cur_encoding;
 
 	/*
 	 * All input received since we were last in the ground state. Sent to
@@ -780,6 +784,10 @@ input_init(struct window_pane *wp)
 	ictx->flags = 0;
 
 	ictx->since_ground = evbuffer_new();
+
+	ictx->cur_encoding = xmalloc(1);
+	*ictx->cur_encoding = '\0';
+	ictx->iconv_ctx = (iconv_t)-1;
 }
 
 /* Destroy input parser. */
@@ -841,8 +849,10 @@ input_parse(struct window_pane *wp)
 	struct input_ctx		*ictx = wp->ictx;
 	const struct input_transition	*itr;
 	struct evbuffer			*evb = wp->event->input;
-	u_char				*buf;
-	size_t				 len, off;
+	u_char				*rawbuf, *buf;
+	size_t				 rawlen, len;
+	size_t				 off;
+	const char			*encoding;
 
 	if (EVBUFFER_LENGTH(evb) == 0)
 		return;
@@ -863,12 +873,87 @@ input_parse(struct window_pane *wp)
 		screen_write_start(&ictx->ctx, NULL, &wp->base);
 	ictx->wp = wp;
 
-	buf = EVBUFFER_DATA(evb);
-	len = EVBUFFER_LENGTH(evb);
+	rawbuf = EVBUFFER_DATA(evb);
+	rawlen = EVBUFFER_LENGTH(evb);
 	notify_input(wp, evb);
-	off = 0;
+
+	encoding = options_get_string(&wp->window->options, "output-encoding");
+	if (strcasecmp(encoding, ictx->cur_encoding) != 0) {
+		/* 'output-encoding' is updated; (re)open iconv. */
+		log_debug("%s: output-encoding %s -> %s", __func__,
+		    ictx->cur_encoding, encoding);
+		if (ictx->iconv_ctx != (iconv_t)-1)
+			iconv_close(ictx->iconv_ctx);
+		ictx->iconv_ctx = iconv_open("UTF-8", encoding);
+		if (ictx->iconv_ctx == (iconv_t)-1) {
+			struct client	*c;
+			/*
+			 * iconv does not support the encoding: reverting to
+			 * the previous one.
+			 */
+			log_debug("%s: unknown encoding %s, reverting to %s",
+			    __func__, encoding, ictx->cur_encoding);
+			TAILQ_FOREACH(c, &clients, entry) {
+				if (winlink_find_by_window(&c->session->windows,
+				    wp->window) == NULL)
+					continue;
+				status_message_set(c, "Unknown encoding %s, "
+				    "reverting to %s", encoding,
+				    ictx->cur_encoding);
+			}
+			options_set_string(&wp->window->options,
+			    "output-encoding", "%s", ictx->cur_encoding);
+			encoding = options_get_string(&wp->window->options,
+			    "output-encoding");
+			ictx->iconv_ctx = iconv_open("UTF-8", encoding);
+			/* Failed to revert; something bad happens. */
+			if (ictx->iconv_ctx == (iconv_t)-1)
+				log_fatalx("iconv_open() failed: encoding: %s, "
+				    "errno: %d", encoding, errno);
+		}
+		log_debug("%s: iconv_ctx %p", __func__, ictx->iconv_ctx);
+		free(ictx->cur_encoding);
+		ictx->cur_encoding = xstrdup(encoding);
+	}
+
+	if (options_get_number(&wp->window->options, "utf8") == 1 &&
+	    strcasecmp(encoding, "UTF-8") != 0) {
+		size_t			 rawleftlen, utf8leftlen, prevlen;
+		u_char			*rawp, *utf8p;
+		static u_char		*utf8buf = NULL;
+		static const size_t	 UTF8BUFSIZ = 8192;
+
+		if (utf8buf == NULL)
+			utf8buf = xcalloc(1, UTF8BUFSIZ);
+
+		/* Transcode from output-encoding to UTF-8. */
+		buf = utf8buf;
+		len = 0;
+		rawp = rawbuf;
+		utf8p = utf8buf;
+		rawleftlen = rawlen;
+		utf8leftlen = prevlen = UTF8BUFSIZ;
+		do {
+			iconv(ictx->iconv_ctx, (char **)&rawp, &rawleftlen,
+			    (char **)&utf8p, &utf8leftlen);
+			len += prevlen - utf8leftlen;
+			prevlen = utf8leftlen;
+			if (rawleftlen != 0) {
+				*utf8p = *rawp;
+				utf8p++;
+				rawp++;
+				rawleftlen--;
+				utf8leftlen--;
+			}
+		} while (rawleftlen != 0);
+	} else {
+		/* No transcode. */
+		buf = rawbuf;
+		len = rawlen;
+	}
 
 	/* Parse the input. */
+	off = 0;
 	while (off < len) {
 		ictx->ch = buf[off++];
 		log_debug("%s: '%c' %s", __func__, ictx->ch, ictx->state->name);
@@ -904,7 +989,7 @@ input_parse(struct window_pane *wp)
 	/* Close the screen. */
 	screen_write_stop(&ictx->ctx);
 
-	evbuffer_drain(evb, len);
+	evbuffer_drain(evb, rawlen);
 }
 
 /* Split the parameter list (if any). */
