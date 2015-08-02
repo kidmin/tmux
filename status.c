@@ -36,7 +36,6 @@ char   *status_redraw_get_right(struct client *, time_t, int,
 char   *status_print(struct client *, struct winlink *, time_t,
 	    struct grid_cell *);
 char   *status_replace(struct client *, struct winlink *, const char *, time_t);
-void	status_replace1(char **, char **, char *, size_t);
 void	status_message_callback(int, short, void *);
 
 const char *status_prompt_up_history(u_int *);
@@ -47,19 +46,100 @@ const char **status_prompt_complete_list(u_int *, const char *);
 char   *status_prompt_complete_prefix(const char **, u_int);
 char   *status_prompt_complete(struct session *, const char *);
 
+char   *status_prompt_find_history_file(void);
+
 /* Status prompt history. */
 #define PROMPT_HISTORY 100
 char	**status_prompt_hlist;
 u_int	  status_prompt_hsize;
 
-/* Status output tree. */
-RB_GENERATE(status_out_tree, status_out, entry, status_out_cmp);
-
-/* Output tree comparison function. */
-int
-status_out_cmp(struct status_out *so1, struct status_out *so2)
+/* Find the history file to load/save from/to. */
+char *
+status_prompt_find_history_file(void)
 {
-	return (strcmp(so1->cmd, so2->cmd));
+	const char	*home, *history_file;
+	char		*path;
+
+	history_file = options_get_string(&global_options, "history-file");
+	if (*history_file == '\0')
+		return (NULL);
+	if (*history_file == '/')
+		return (xstrdup(history_file));
+
+	if (history_file[0] != '~' || history_file[1] != '/')
+		return (NULL);
+	if ((home = find_home()) == NULL)
+		return (NULL);
+	xasprintf(&path, "%s%s", home, history_file + 1);
+	return (path);
+}
+
+/* Load status prompt history from file. */
+void
+status_prompt_load_history(void)
+{
+	FILE	*f;
+	char	*history_file, *line, *tmp;
+	size_t	 length;
+
+	if ((history_file = status_prompt_find_history_file()) == NULL)
+		return;
+	log_debug("loading history from %s", history_file);
+
+	f = fopen(history_file, "r");
+	if (f == NULL) {
+		log_debug("%s: %s", history_file, strerror(errno));
+		free(history_file);
+		return;
+	}
+	free(history_file);
+
+	for (;;) {
+		if ((line = fgetln(f, &length)) == NULL)
+			break;
+
+		if (length > 0) {
+			if (line[length - 1] == '\n') {
+				line[length - 1] = '\0';
+				status_prompt_add_history(line);
+			} else {
+				tmp = xmalloc(length + 1);
+				memcpy(tmp, line, length);
+				tmp[length] = '\0';
+				status_prompt_add_history(tmp);
+				free(tmp);
+			}
+		}
+	}
+	fclose(f);
+}
+
+/* Save status prompt history to file. */
+void
+status_prompt_save_history(void)
+{
+	FILE	*f;
+	u_int	 i;
+	char	*history_file;
+
+	if ((history_file = status_prompt_find_history_file()) == NULL)
+		return;
+	log_debug("saving history to %s", history_file);
+
+	f = fopen(history_file, "w");
+	if (f == NULL) {
+		log_debug("%s: %s", history_file, strerror(errno));
+		free(history_file);
+		return;
+	}
+	free(history_file);
+
+	for (i = 0; i < status_prompt_hsize; i++) {
+		fputs(status_prompt_hlist[i], f);
+		fputc('\n', f);
+	}
+	fclose(f);
+
 }
 
 /* Get screen line of status line. -1 means off. */
