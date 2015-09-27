@@ -854,11 +854,8 @@ input_parse(struct window_pane *wp)
 	if (EVBUFFER_LENGTH(evb) == 0)
 		return;
 
-	wp->window->flags |= WINDOW_ACTIVITY;
-	wp->window->flags &= ~WINDOW_SILENCE;
-
-	if (gettimeofday(&wp->window->activity_time, NULL) != 0)
-		fatal("gettimeofday failed");
+	window_update_activity(wp->window);
+	wp->flags |= PANE_CHANGED;
 
 	/*
 	 * Open the screen. Use NULL wp if there is a mode set as don't want to
@@ -949,11 +946,13 @@ input_parse(struct window_pane *wp)
 		len = rawlen;
 	}
 
+	log_debug("%s: %%%u %s, %zu bytes: %.*s", __func__, wp->id,
+	    ictx->state->name, len, (int)len, buf);
+
 	/* Parse the input. */
 	off = 0;
 	while (off < len) {
 		ictx->ch = buf[off++];
-		log_debug("%s: '%c' %s", __func__, ictx->ch, ictx->state->name);
 
 		/* Find the transition. */
 		itr = ictx->state->transitions;
@@ -964,7 +963,7 @@ input_parse(struct window_pane *wp)
 		}
 		if (itr->first == -1 || itr->last == -1) {
 			/* No transition? Eh? */
-			fatalx("No transition from state!");
+			fatalx("no transition from state");
 		}
 
 		/*
@@ -1158,13 +1157,13 @@ input_c0_dispatch(struct input_ctx *ictx)
 	struct window_pane	*wp = ictx->wp;
 	struct screen		*s = sctx->s;
 
-	log_debug("%s: '%c", __func__, ictx->ch);
+	log_debug("%s: '%c'", __func__, ictx->ch);
 
 	switch (ictx->ch) {
 	case '\000':	/* NUL */
 		break;
 	case '\007':	/* BEL */
-		wp->window->flags |= WINDOW_BELL;
+		alerts_queue(wp->window, WINDOW_BELL);
 		break;
 	case '\010':	/* BS */
 		screen_write_backspace(sctx);
@@ -1284,6 +1283,7 @@ input_csi_dispatch(struct input_ctx *ictx)
 	struct screen		       *s = sctx->s;
 	struct input_table_entry       *entry;
 	int				n, m;
+	u_int				cx;
 
 	if (ictx->flags & INPUT_DISCARD)
 		return (0);
@@ -1302,12 +1302,16 @@ input_csi_dispatch(struct input_ctx *ictx)
 	switch (entry->type) {
 	case INPUT_CSI_CBT:
 		/* Find the previous tab point, n times. */
+		cx = s->cx;
+		if (cx > screen_size_x(s) - 1)
+			cx = screen_size_x(s) - 1;
 		n = input_get(ictx, 0, 1, 1);
-		while (s->cx > 0 && n-- > 0) {
+		while (cx > 0 && n-- > 0) {
 			do
-				s->cx--;
-			while (s->cx > 0 && !bit_test(s->tabs, s->cx));
+				cx--;
+			while (cx > 0 && !bit_test(s->tabs, cx));
 		}
+		s->cx = cx;
 		break;
 	case INPUT_CSI_CUB:
 		screen_write_cursorleft(sctx, input_get(ictx, 0, 1, 1));

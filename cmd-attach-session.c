@@ -93,6 +93,24 @@ cmd_attach_session(struct cmd_q *cmdq, const char *tflag, int dflag, int rflag,
 		session_set_current(s, wl);
 	}
 
+	if (cflag != NULL) {
+		ft = format_create();
+		format_defaults(ft, cmd_find_client(cmdq, NULL, 1), s,
+		    NULL, NULL);
+		cp = format_expand(ft, cflag);
+		format_free(ft);
+
+		fd = open(cp, O_RDONLY|O_DIRECTORY);
+		free(cp);
+		if (fd == -1) {
+			cmdq_error(cmdq, "bad working directory: %s",
+			    strerror(errno));
+			return (CMD_RETURN_ERROR);
+		}
+		close(s->cwd);
+		s->cwd = fd;
+	}
+
 	if (c->session != NULL) {
 		if (dflag) {
 			/*
@@ -108,24 +126,6 @@ cmd_attach_session(struct cmd_q *cmdq, const char *tflag, int dflag, int rflag,
 			}
 		}
 
-		if (cflag != NULL) {
-			ft = format_create();
-			format_defaults(ft, cmd_find_client(cmdq, NULL, 1), s,
-			    NULL, NULL);
-			cp = format_expand(ft, cflag);
-			format_free(ft);
-
-			fd = open(cp, O_RDONLY|O_DIRECTORY);
-			free(cp);
-			if (fd == -1) {
-				cmdq_error(cmdq, "bad working directory: %s",
-				    strerror(errno));
-				return (CMD_RETURN_ERROR);
-			}
-			close(s->cwd);
-			s->cwd = fd;
-		}
-
 		if (!Eflag) {
 			update = options_get_string(&s->options,
 			    "update-environment");
@@ -133,8 +133,10 @@ cmd_attach_session(struct cmd_q *cmdq, const char *tflag, int dflag, int rflag,
 		}
 
 		c->session = s;
+		status_timer_start(c);
 		notify_attached_session_changed(c);
-		session_update_activity(s);
+		session_update_activity(s, NULL);
+		gettimeofday(&s->last_attached_time, NULL);
 		server_redraw_client(c);
 		s->curw->flags &= ~WINLINK_ALERTFLAGS;
 	} else {
@@ -142,24 +144,6 @@ cmd_attach_session(struct cmd_q *cmdq, const char *tflag, int dflag, int rflag,
 			cmdq_error(cmdq, "open terminal failed: %s", cause);
 			free(cause);
 			return (CMD_RETURN_ERROR);
-		}
-
-		if (cflag != NULL) {
-			ft = format_create();
-			format_defaults(ft, cmd_find_client(cmdq, NULL, 1), s,
-			    NULL, NULL);
-			cp = format_expand(ft, cflag);
-			format_free(ft);
-
-			fd = open(cp, O_RDONLY|O_DIRECTORY);
-			free(cp);
-			if (fd == -1) {
-				cmdq_error(cmdq, "bad working directory: %s",
-				    strerror(errno));
-				return (CMD_RETURN_ERROR);
-			}
-			close(s->cwd);
-			s->cwd = fd;
 		}
 
 		if (rflag)
@@ -177,8 +161,10 @@ cmd_attach_session(struct cmd_q *cmdq, const char *tflag, int dflag, int rflag,
 		}
 
 		c->session = s;
+		status_timer_start(c);
 		notify_attached_session_changed(c);
-		session_update_activity(s);
+		session_update_activity(s, NULL);
+		gettimeofday(&s->last_attached_time, NULL);
 		server_redraw_client(c);
 		s->curw->flags &= ~WINLINK_ALERTFLAGS;
 

@@ -233,7 +233,6 @@ tty_start_tty(struct tty *tty)
 			tty->flags |= TTY_FOCUS;
 			tty_puts(tty, "\033[?1004h");
 		}
-		tty_puts(tty, "\033[c");
 	}
 
 	tty->cx = UINT_MAX;
@@ -251,14 +250,6 @@ tty_start_tty(struct tty *tty)
 	tty->mouse_drag_flag = 0;
 	tty->mouse_drag_update = NULL;
 	tty->mouse_drag_release = NULL;
-}
-
-void
-tty_set_class(struct tty *tty, u_int class)
-{
-	if (tty->class != 0)
-		return;
-	tty->class = class;
 }
 
 void
@@ -1657,14 +1648,19 @@ tty_try_256(struct tty *tty, u_char colour, const char *type)
 	char	s[32];
 
 	/*
-	 * If the terminfo entry has 256 colours, assume that setaf and setab
-	 * work correctly.
+	 * If the terminfo entry has 256 colours and setaf and setab exist,
+	 * assume that they work correctly.
 	 */
 	if (tty->term->flags & TERM_256COLOURS) {
-		if (*type == '3')
+		if (*type == '3') {
+			if (!tty_term_has(tty->term, TTYC_SETAF))
+				goto fallback;
 			tty_putcode1(tty, TTYC_SETAF, colour);
-		else
+		} else {
+			if (!tty_term_has(tty->term, TTYC_SETAB))
+				goto fallback;
 			tty_putcode1(tty, TTYC_SETAB, colour);
+		}
 		return (0);
 	}
 
@@ -1672,13 +1668,15 @@ tty_try_256(struct tty *tty, u_char colour, const char *type)
 	 * If the user has specified -2 to the client, setaf and setab may not
 	 * work, so send the usual sequence.
 	 */
-	if (tty->term_flags & TERM_256COLOURS) {
-		xsnprintf(s, sizeof s, "\033[%s;5;%hhum", type, colour);
-		tty_puts(tty, s);
-		return (0);
-	}
+	if (tty->term_flags & TERM_256COLOURS)
+		goto fallback;
 
 	return (-1);
+
+fallback:
+	xsnprintf(s, sizeof s, "\033[%s;5;%hhum", type, colour);
+	tty_puts(tty, s);
+	return (0);
 }
 
 void
@@ -1720,10 +1718,4 @@ tty_default_colours(struct grid_cell *gc, const struct window_pane *wp)
 			gc->flags |= (wgc->flags & GRID_FLAG_BG256);
 		}
 	}
-}
-
-void
-tty_bell(struct tty *tty)
-{
-	tty_putcode(tty, TTYC_BEL);
 }

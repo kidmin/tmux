@@ -1,4 +1,4 @@
-# $Id$
+# Makefile.am
 
 # Obvious program stuff.
 bin_PROGRAMS = tmux
@@ -33,6 +33,10 @@ CFLAGS += -Wundef -Wbad-function-cast -Winline -Wcast-align
 CFLAGS += -Wdeclaration-after-statement -Wno-pointer-sign
 CPPFLAGS += -DDEBUG
 endif
+if IS_COVERAGE
+CFLAGS += -g -O0 --coverage
+LDFLAGS += --coverage
+endif
 CPPFLAGS += -iquote.
 endif
 
@@ -57,6 +61,7 @@ endif
 
 # List of sources.
 dist_tmux_SOURCES = \
+	alerts.c \
 	arguments.c \
 	attributes.c \
 	cfg.c \
@@ -72,7 +77,6 @@ dist_tmux_SOURCES = \
 	cmd-command-prompt.c \
 	cmd-confirm-before.c \
 	cmd-copy-mode.c \
-	cmd-delete-buffer.c \
 	cmd-detach-client.c \
 	cmd-display-message.c \
 	cmd-display-panes.c \
@@ -156,7 +160,6 @@ dist_tmux_SOURCES = \
 	screen.c \
 	server-client.c \
 	server-fn.c \
-	server-window.c \
 	server.c \
 	session.c \
 	signal.c \

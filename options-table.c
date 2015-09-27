@@ -106,8 +106,7 @@ const struct options_table_entry server_options_table[] = {
 
 	{ .name = "terminal-overrides",
 	  .type = OPTIONS_TABLE_STRING,
-	  .default_str = "*256col*:colors=256"
-	                 ",xterm*:XT:Ms=\\E]52;%p1%s;%p2%s\\007"
+	  .default_str = "xterm*:XT:Ms=\\E]52;%p1%s;%p2%s\\007"
 	                 ":Cs=\\E]12;%p1%s\\007:Cr=\\E]112\\007"
 			 ":Ss=\\E[%p1%d q:Se=\\E[2 q,screen*:XT"
 	},
@@ -203,11 +202,6 @@ const struct options_table_entry session_options_table[] = {
 	{ .name = "lock-command",
 	  .type = OPTIONS_TABLE_STRING,
 	  .default_str = "lock -np"
-	},
-
-	{ .name = "lock-server",
-	  .type = OPTIONS_TABLE_FLAG,
-	  .default_num = 1
 	},
 
 	{ .name = "message-attr",

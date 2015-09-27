@@ -91,7 +91,6 @@ const struct window_mode window_copy_mode = {
 	window_copy_free,
 	window_copy_resize,
 	window_copy_key,
-	NULL,
 };
 
 enum window_copy_input_type {
@@ -136,7 +135,8 @@ struct window_copy_mode_data {
 	u_int			 selx;
 	u_int			 sely;
 
-	u_int			 rectflag; /* are we in rectangle copy mode? */
+	int			 rectflag;	/* in rectangle copy mode? */
+	int			 scroll_exit;	/* exit on scroll to end? */
 
 	u_int			 cx;
 	u_int			 cy;
@@ -176,6 +176,7 @@ window_copy_init(struct window_pane *wp)
 	data->backing_written = 0;
 
 	data->rectflag = 0;
+	data->scroll_exit = 0;
 
 	data->inputtype = WINDOW_COPY_OFF;
 	data->inputprompt = NULL;
@@ -207,7 +208,7 @@ window_copy_init(struct window_pane *wp)
 }
 
 void
-window_copy_init_from_pane(struct window_pane *wp)
+window_copy_init_from_pane(struct window_pane *wp, int scroll_exit)
 {
 	struct window_copy_mode_data	*data = wp->modedata;
 	struct screen			*s = &data->screen;
@@ -220,6 +221,7 @@ window_copy_init_from_pane(struct window_pane *wp)
 	data->backing = &wp->base;
 	data->cx = data->backing->cx;
 	data->cy = data->backing->cy;
+	data->scroll_exit = scroll_exit;
 
 	s->cx = data->cx;
 	s->cy = data->cy;
@@ -420,6 +422,13 @@ window_copy_key(struct window_pane *wp, struct client *c, struct session *sess,
 	}
 
 	cmd = mode_key_lookup(&data->mdata, key, &arg);
+	if (cmd != MODEKEYCOPY_PREVIOUSPAGE &&
+	    cmd != MODEKEYCOPY_NEXTPAGE &&
+	    cmd != MODEKEYCOPY_SCROLLUP &&
+	    cmd != MODEKEYCOPY_SCROLLDOWN &&
+	    cmd != MODEKEYCOPY_HALFPAGEUP &&
+	    cmd != MODEKEYCOPY_HALFPAGEDOWN)
+		data->scroll_exit = 0;
 	switch (cmd) {
 	case MODEKEYCOPY_APPENDSELECTION:
 		if (sess != NULL) {
@@ -462,6 +471,10 @@ window_copy_key(struct window_pane *wp, struct client *c, struct session *sess,
 	case MODEKEYCOPY_SCROLLDOWN:
 		for (; np != 0; np--)
 			window_copy_cursor_down(wp, 1);
+		if (data->scroll_exit && data->oy == 0) {
+			window_pane_reset_mode(wp);
+			return;
+		}
 		break;
 	case MODEKEYCOPY_PREVIOUSPAGE:
 		for (; np != 0; np--)
@@ -476,6 +489,10 @@ window_copy_key(struct window_pane *wp, struct client *c, struct session *sess,
 				data->oy = 0;
 			else
 				data->oy -= n;
+		}
+		if (data->scroll_exit && data->oy == 0) {
+			window_pane_reset_mode(wp);
+			return;
 		}
 		window_copy_update_selection(wp, 1);
 		window_copy_redraw_screen(wp);
@@ -498,6 +515,10 @@ window_copy_key(struct window_pane *wp, struct client *c, struct session *sess,
 				data->oy = 0;
 			else
 				data->oy -= n;
+		}
+		if (data->scroll_exit && data->oy == 0) {
+			window_pane_reset_mode(wp);
+			return;
 		}
 		window_copy_update_selection(wp, 1);
 		window_copy_redraw_screen(wp);
@@ -783,7 +804,8 @@ window_copy_key_input(struct window_pane *wp, int key)
 {
 	struct window_copy_mode_data	*data = wp->modedata;
 	struct screen			*s = &data->screen;
-	size_t				 inputlen, n;
+	const char			*bufdata;
+	size_t				 inputlen, n, bufsize;
 	int				 np;
 	struct paste_buffer		*pb;
 	u_char				 ch;
@@ -801,17 +823,18 @@ window_copy_key_input(struct window_pane *wp, int key)
 		*data->inputstr = '\0';
 		break;
 	case MODEKEYEDIT_PASTE:
-		if ((pb = paste_get_top()) == NULL)
+		if ((pb = paste_get_top(NULL)) == NULL)
 			break;
-		for (n = 0; n < pb->size; n++) {
-			ch = (u_char) pb->data[n];
+		bufdata = paste_buffer_data(pb, &bufsize);
+		for (n = 0; n < bufsize; n++) {
+			ch = (u_char)bufdata[n];
 			if (ch < 32 || ch == 127)
 				break;
 		}
 		inputlen = strlen(data->inputstr);
 
 		data->inputstr = xrealloc(data->inputstr, inputlen + n + 1);
-		memcpy(data->inputstr + inputlen, pb->data, n);
+		memcpy(data->inputstr + inputlen, bufdata, n);
 		data->inputstr[inputlen + n] = '\0';
 		break;
 	case MODEKEYEDIT_ENTER:
@@ -1492,7 +1515,8 @@ window_copy_append_selection(struct window_pane *wp, const char *bufname)
 {
 	char				*buf;
 	struct paste_buffer		*pb;
-	size_t				 len;
+	const char			*bufdata;
+	size_t				 len, bufsize;
 	struct screen_write_ctx		 ctx;
 
 	buf = window_copy_get_selection(wp, &len);
@@ -1505,17 +1529,16 @@ window_copy_append_selection(struct window_pane *wp, const char *bufname)
 		screen_write_stop(&ctx);
 	}
 
-	if (bufname == NULL || *bufname == '\0') {
-		pb = paste_get_top();
-		if (pb != NULL)
-			bufname = pb->name;
-	} else
+	if (bufname == NULL || *bufname == '\0')
+		pb = paste_get_top(&bufname);
+	else
 		pb = paste_get_name(bufname);
 	if (pb != NULL) {
-		buf = xrealloc(buf, len + pb->size);
-		memmove(buf + pb->size, buf, len);
-		memcpy(buf, pb->data, pb->size);
-		len += pb->size;
+		bufdata = paste_buffer_data(pb, &bufsize);
+		buf = xrealloc(buf, len + bufsize);
+		memmove(buf + bufsize, buf, len);
+		memcpy(buf, bufdata, bufsize);
+		len += bufsize;
 	}
 	if (paste_set(buf, len, bufname, NULL) != 0)
 		free(buf);

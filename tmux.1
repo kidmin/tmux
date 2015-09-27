@@ -1137,7 +1137,7 @@ The synopsis for the
 command is:
 .Bl -tag -width Ds
 .It Xo Ic copy-mode
-.Op Fl Mu
+.Op Fl Meu
 .Op Fl t Ar target-pane
 .Xc
 Enter copy mode.
@@ -1147,6 +1147,16 @@ option scrolls one page up.
 .Fl M
 begins a mouse drag (only valid if bound to a mouse key binding, see
 .Sx MOUSE SUPPORT ) .
+.Fl e
+specifies that scrolling to the bottom of the history (to the visible screen)
+should exit copy mode.
+While in copy mode, pressing a key other than those used for scrolling will
+disable this behaviour.
+This is intended to allow fast scrolling through a pane's history, for
+example with:
+.Bd -literal -offset indent
+bind PageUp copy-mode -eu
+.Ed
 .El
 .Pp
 Each window displayed by
@@ -2565,9 +2575,7 @@ Lock the session (like the
 .Ic lock-session
 command) after
 .Ar number
-seconds of inactivity, or the entire server (all sessions) if the
-.Ic lock-server
-option is set.
+seconds of inactivity.
 The default is not to lock (set to 0).
 .It Ic lock-command Ar shell-command
 Command to run when locking each client.
@@ -2575,19 +2583,6 @@ The default is to run
 .Xr lock 1
 with
 .Fl np .
-.It Xo Ic lock-server
-.Op Ic on | off
-.Xc
-If this option is
-.Ic on
-(the default),
-instead of each session locking individually as each has been
-idle for
-.Ic lock-after-time ,
-the entire server will lock after
-.Em all
-sessions would have locked.
-This has no effect as a session option; it must be set as a global option.
 .It Ic message-command-style Ar style
 Set status line message command style, where
 .Ar style
@@ -3440,6 +3435,8 @@ The following variables are available, where appropriate:
 .It Li "session_activity_string" Ta "" Ta "String time of session last activity"
 .It Li "session_created" Ta "" Ta "Integer time session created"
 .It Li "session_created_string" Ta "" Ta "String time session created"
+.It Li "session_last_attached" Ta "" Ta "Integer time session last attached"
+.It Li "session_last_attached_string" Ta "" Ta "String time session last attached"
 .It Li "session_group" Ta "" Ta "Number of session group"
 .It Li "session_grouped" Ta "" Ta "1 if session in a group"
 .It Li "session_height" Ta "" Ta "Height of session"
