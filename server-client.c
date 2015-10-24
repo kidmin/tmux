@@ -130,7 +130,7 @@ server_client_create(int fd)
 	evtimer_set(&c->repeat_timer, server_client_repeat_timer, c);
 
 	TAILQ_INSERT_TAIL(&clients, c, entry);
-	log_debug("new client %d", fd);
+	log_debug("new client %p", c);
 }
 
 /* Open client terminal if needed. */
@@ -171,7 +171,7 @@ server_client_lost(struct client *c)
 		c->stdin_callback(c, 1, c->stdin_callback_data);
 
 	TAILQ_REMOVE(&clients, c, entry);
-	log_debug("lost client %d", c->ibuf.fd);
+	log_debug("lost client %p", c);
 
 	/*
 	 * If CLIENT_TERMINAL hasn't been set, then tty_init hasn't been called
@@ -237,7 +237,7 @@ server_client_lost(struct client *c)
 void
 server_client_unref(struct client *c)
 {
-	log_debug("unref client %d (%d references)", c->ibuf.fd, c->references);
+	log_debug("unref client %p (%d references)", c, c->references);
 
 	c->references--;
 	if (c->references == 0)
@@ -250,7 +250,7 @@ server_client_free(unused int fd, unused short events, void *arg)
 {
 	struct client	*c = arg;
 
-	log_debug("free client %d (%d references)", c->ibuf.fd, c->references);
+	log_debug("free client %p (%d references)", c, c->references);
 
 	if (c->references == 0)
 		free(c);
@@ -540,7 +540,7 @@ server_client_handle_key(struct client *c, int key)
 	struct window		*w;
 	struct window_pane	*wp;
 	struct timeval		 tv;
-	struct key_table	*table = c->keytable;
+	struct key_table	*table;
 	struct key_binding	 bd_find, *bd;
 	int			 xtimeout;
 
@@ -606,7 +606,7 @@ server_client_handle_key(struct client *c, int key)
 retry:
 	/* Try to see if there is a key binding in the current table. */
 	bd_find.key = key;
-	bd = RB_FIND(key_bindings, &table->key_bindings, &bd_find);
+	bd = RB_FIND(key_bindings, &c->keytable->key_bindings, &bd_find);
 	if (bd != NULL) {
 		/*
 		 * Key was matched in this table. If currently repeating but a
@@ -624,6 +624,7 @@ retry:
 		 * Take a reference to this table to make sure the key binding
 		 * doesn't disappear.
 		 */
+		table = c->keytable;
 		table->references++;
 
 		/*
@@ -1006,7 +1007,7 @@ server_client_msg_dispatch(struct client *c)
 			continue;
 		}
 
-		log_debug("got %u from client %d", imsg.hdr.type, c->ibuf.fd);
+		log_debug("got %u from client %p", imsg.hdr.type, c);
 		switch (imsg.hdr.type) {
 		case MSG_IDENTIFY_FLAGS:
 		case MSG_IDENTIFY_TERM:
@@ -1163,37 +1164,45 @@ server_client_msg_identify(struct client *c, struct imsg *imsg)
 			fatalx("bad MSG_IDENTIFY_FLAGS size");
 		memcpy(&flags, data, sizeof flags);
 		c->flags |= flags;
+		log_debug("client %p IDENTIFY_FLAGS %#x", c, flags);
 		break;
 	case MSG_IDENTIFY_TERM:
 		if (datalen == 0 || data[datalen - 1] != '\0')
 			fatalx("bad MSG_IDENTIFY_TERM string");
 		c->term = xstrdup(data);
+		log_debug("client %p IDENTIFY_TERM %s", c, data);
 		break;
 	case MSG_IDENTIFY_TTYNAME:
 		if (datalen == 0 || data[datalen - 1] != '\0')
 			fatalx("bad MSG_IDENTIFY_TTYNAME string");
 		c->ttyname = xstrdup(data);
+		log_debug("client %p IDENTIFY_TTYNAME %s", c, data);
 		break;
 	case MSG_IDENTIFY_CWD:
-		if (datalen != 0)
-			fatalx("bad MSG_IDENTIFY_CWD size");
-		c->cwd = imsg->fd;
+		if (datalen == 0 || data[datalen - 1] != '\0')
+			fatalx("bad MSG_IDENTIFY_CWD string");
+		if ((c->cwd = open(data, O_RDONLY)) == -1)
+			c->cwd = open("/", O_RDONLY);
+		log_debug("client %p IDENTIFY_CWD %s", c, data);
 		break;
 	case MSG_IDENTIFY_STDIN:
 		if (datalen != 0)
 			fatalx("bad MSG_IDENTIFY_STDIN size");
 		c->fd = imsg->fd;
+		log_debug("client %p IDENTIFY_STDIN %d", c, imsg->fd);
 		break;
 	case MSG_IDENTIFY_ENVIRON:
 		if (datalen == 0 || data[datalen - 1] != '\0')
 			fatalx("bad MSG_IDENTIFY_ENVIRON string");
 		if (strchr(data, '=') != NULL)
 			environ_put(&c->environ, data);
+		log_debug("client %p IDENTIFY_ENVIRON %s", c, data);
 		break;
 	case MSG_IDENTIFY_CLIENTPID:
 		if (datalen != sizeof c->pid)
 			fatalx("bad MSG_IDENTIFY_CLIENTPID size");
 		memcpy(&c->pid, data, sizeof c->pid);
+		log_debug("client %p IDENTIFY_CLIENTPID %ld", c, (long)c->pid);
 		break;
 	default:
 		break;
