@@ -49,9 +49,9 @@ cmd_new_window_exec(struct cmd *self, struct cmd_q *cmdq)
 	struct args		*args = self->args;
 	struct session		*s;
 	struct winlink		*wl;
-	const char		*cmd, *path, *template;
+	const char		*cmd, *path, *template, *cwd, *to_free;
 	char		       **argv, *cause, *cp;
-	int			 argc, idx, detached, cwd, fd = -1;
+	int			 argc, idx, detached;
 	struct format_tree	*ft;
 	struct environ_entry	*envent;
 
@@ -71,7 +71,7 @@ cmd_new_window_exec(struct cmd *self, struct cmd_q *cmdq)
 	detached = args_has(args, 'd');
 
 	if (args->argc == 0) {
-		cmd = options_get_string(&s->options, "default-command");
+		cmd = options_get_string(s->options, "default-command");
 		if (cmd != NULL && *cmd != '\0') {
 			argc = 1;
 			argv = (char **)&cmd;
@@ -86,30 +86,19 @@ cmd_new_window_exec(struct cmd *self, struct cmd_q *cmdq)
 
 	path = NULL;
 	if (cmdq->client != NULL && cmdq->client->session == NULL)
-		envent = environ_find(&cmdq->client->environ, "PATH");
+		envent = environ_find(cmdq->client->environ, "PATH");
 	else
-		envent = environ_find(&s->environ, "PATH");
+		envent = environ_find(s->environ, "PATH");
 	if (envent != NULL)
 		path = envent->value;
 
+	to_free = NULL;
 	if (args_has(args, 'c')) {
 		ft = format_create();
 		format_defaults(ft, cmd_find_client(cmdq, NULL, 1), s, NULL,
 		    NULL);
-		cp = format_expand(ft, args_get(args, 'c'));
+		cwd = format_expand(ft, args_get(args, 'c'));
 		format_free(ft);
-
-		if (cp != NULL && *cp != '\0') {
-			fd = open(cp, O_RDONLY|O_DIRECTORY);
-			free(cp);
-			if (fd == -1) {
-				cmdq_error(cmdq, "bad working directory: %s",
-				    strerror(errno));
-				return (CMD_RETURN_ERROR);
-			}
-		} else if (cp != NULL)
-			free(cp);
-		cwd = fd;
 	} else if (cmdq->client != NULL && cmdq->client->session == NULL)
 		cwd = cmdq->client->cwd;
 	else
@@ -136,7 +125,7 @@ cmd_new_window_exec(struct cmd *self, struct cmd_q *cmdq)
 	}
 
 	if (idx == -1)
-		idx = -1 - options_get_number(&s->options, "base-index");
+		idx = -1 - options_get_number(s->options, "base-index");
 	wl = session_new(s, args_get(args, 'n'), argc, argv, path, cwd, idx,
 		&cause);
 	if (wl == NULL) {
@@ -165,12 +154,12 @@ cmd_new_window_exec(struct cmd *self, struct cmd_q *cmdq)
 		format_free(ft);
 	}
 
-	if (fd != -1)
-		close(fd);
+	if (to_free != NULL)
+		free((void *)to_free);
 	return (CMD_RETURN_NORMAL);
 
 error:
-	if (fd != -1)
-		close(fd);
+	if (to_free != NULL)
+		free((void *)to_free);
 	return (CMD_RETURN_ERROR);
 }

@@ -51,9 +51,8 @@ cmd_attach_session(struct cmd_q *cmdq, const char *tflag, int dflag, int rflag,
 	struct window_pane	*wp = NULL;
 	const char		*update;
 	char			*cause;
-	int			 fd;
 	struct format_tree	*ft;
-	char			*cp;
+	char			*cwd;
 
 	if (RB_EMPTY(&sessions)) {
 		cmdq_error(cmdq, "no sessions");
@@ -97,39 +96,26 @@ cmd_attach_session(struct cmd_q *cmdq, const char *tflag, int dflag, int rflag,
 		ft = format_create();
 		format_defaults(ft, cmd_find_client(cmdq, NULL, 1), s,
 		    NULL, NULL);
-		cp = format_expand(ft, cflag);
+		cwd = format_expand(ft, cflag);
 		format_free(ft);
 
-		fd = open(cp, O_RDONLY|O_DIRECTORY);
-		free(cp);
-		if (fd == -1) {
-			cmdq_error(cmdq, "bad working directory: %s",
-			    strerror(errno));
-			return (CMD_RETURN_ERROR);
-		}
-		close(s->cwd);
-		s->cwd = fd;
+		free((void *)s->cwd);
+		s->cwd = cwd;
 	}
 
 	if (c->session != NULL) {
 		if (dflag) {
-			/*
-			 * Can't use server_write_session in case attaching to
-			 * the same session as currently attached to.
-			 */
 			TAILQ_FOREACH(c_loop, &clients, entry) {
 				if (c_loop->session != s || c == c_loop)
 					continue;
-				server_write_client(c, MSG_DETACH,
-				    c_loop->session->name,
-				    strlen(c_loop->session->name) + 1);
+				proc_send_s(c->peer, MSG_DETACH, s->name);
 			}
 		}
 
 		if (!Eflag) {
-			update = options_get_string(&s->options,
+			update = options_get_string(s->options,
 			    "update-environment");
-			environ_update(update, &c->environ, &s->environ);
+			environ_update(update, c->environ, s->environ);
 		}
 
 		c->session = s;
@@ -150,14 +136,17 @@ cmd_attach_session(struct cmd_q *cmdq, const char *tflag, int dflag, int rflag,
 			c->flags |= CLIENT_READONLY;
 
 		if (dflag) {
-			server_write_session(s, MSG_DETACH, s->name,
-			    strlen(s->name) + 1);
+			TAILQ_FOREACH(c_loop, &clients, entry) {
+				if (c_loop->session != s || c == c_loop)
+					continue;
+				proc_send_s(c->peer, MSG_DETACH, s->name);
+			}
 		}
 
 		if (!Eflag) {
-			update = options_get_string(&s->options,
+			update = options_get_string(s->options,
 			    "update-environment");
-			environ_update(update, &c->environ, &s->environ);
+			environ_update(update, c->environ, s->environ);
 		}
 
 		c->session = s;
@@ -168,7 +157,8 @@ cmd_attach_session(struct cmd_q *cmdq, const char *tflag, int dflag, int rflag,
 		server_redraw_client(c);
 		s->curw->flags &= ~WINLINK_ALERTFLAGS;
 
-		server_write_ready(c);
+		if (~c->flags & CLIENT_CONTROL)
+			proc_send(c->peer, MSG_READY, -1, NULL, 0);
 		cmdq->client_exit = 0;
 	}
 	recalculate_sizes();

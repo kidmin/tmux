@@ -39,6 +39,15 @@
 extern char    *__progname;
 extern char   **environ;
 
+struct client;
+struct environ;
+struct input_ctx;
+struct mouse_event;
+struct options;
+struct session;
+struct tmuxpeer;
+struct tmuxproc;
+
 /* Default global configuration file. */
 #define TMUX_CONF "/etc/tmux.conf"
 
@@ -683,11 +692,6 @@ struct options_entry {
 	RB_ENTRY(options_entry) entry;
 };
 
-struct options {
-	RB_HEAD(options_tree, options_entry) tree;
-	struct options	*parent;
-};
-
 /* Scheduled job. */
 struct job {
 	enum {
@@ -770,9 +774,6 @@ struct screen_write_ctx {
  * Window mode. Windows can be in several modes and this is used to call the
  * right function to handle input and output.
  */
-struct client;
-struct session;
-struct mouse_event;
 struct window_mode {
 	struct screen *(*init)(struct window_pane *);
 	void	(*free)(struct window_pane *);
@@ -804,7 +805,6 @@ struct window_choose_data {
 };
 
 /* Child window structure. */
-struct input_ctx;
 struct window_pane {
 	u_int		 id;
 	u_int		 active_point;
@@ -832,7 +832,7 @@ struct window_pane {
 	int		 argc;
 	char	       **argv;
 	char		*shell;
-	int		 cwd;
+	const char	*cwd;
 
 	pid_t		 pid;
 	char		 tty[TTY_NAME_MAX];
@@ -902,7 +902,7 @@ struct window {
 #define WINDOW_FORCEHEIGHT 0x4000
 #define WINDOW_ALERTFLAGS (WINDOW_BELL|WINDOW_ACTIVITY|WINDOW_SILENCE)
 
-	struct options	 options;
+	struct options	*options;
 
 	u_int		 references;
 
@@ -966,7 +966,6 @@ struct environ_entry {
 
 	RB_ENTRY(environ_entry) entry;
 };
-RB_HEAD(environ, environ_entry);
 
 /* Client session. */
 struct session_group {
@@ -980,7 +979,7 @@ struct session {
 	u_int		 id;
 
 	char		*name;
-	int		 cwd;
+	const char	*cwd;
 
 	struct timeval	 creation_time;
 	struct timeval	 last_attached_time;
@@ -996,7 +995,7 @@ struct session {
 	struct winlink_stack lastw;
 	struct winlinks	 windows;
 
-	struct options	 options;
+	struct options	*options;
 
 #define SESSION_UNATTACHED 0x1	/* not attached to any clients */
 	int		 flags;
@@ -1005,7 +1004,7 @@ struct session {
 
 	struct termios	*tio;
 
-	struct environ	 environ;
+	struct environ	*environ;
 
 	int		 references;
 
@@ -1106,8 +1105,6 @@ struct tty {
 	int		 fd;
 	struct bufferevent *event;
 
-	int		 log_fd;
-
 	struct termios	 tio;
 
 	struct grid_cell cell;
@@ -1172,7 +1169,7 @@ struct message_entry {
 
 /* Client connection. */
 struct client {
-	struct imsgbuf	 ibuf;
+	struct tmuxpeer	*peer;
 
 	pid_t		 pid;
 	int		 fd;
@@ -1182,10 +1179,10 @@ struct client {
 	struct timeval	 creation_time;
 	struct timeval	 activity_time;
 
-	struct environ	 environ;
+	struct environ	*environ;
 
 	char		*title;
-	int		 cwd;
+	const char	*cwd;
 
 	char		*term;
 	char		*ttyname;
@@ -1210,7 +1207,7 @@ struct client {
 #define CLIENT_STATUS 0x10
 #define CLIENT_REPEAT 0x20
 #define CLIENT_SUSPENDED 0x40
-#define CLIENT_BAD 0x80
+/* 0x80 unused */
 #define CLIENT_IDENTIFY 0x100
 #define CLIENT_DEAD 0x200
 #define CLIENT_BORDERS 0x400
@@ -1406,10 +1403,10 @@ struct options_table_entry {
 #define CMD_BUFFER_USAGE "[-b buffer-name]"
 
 /* tmux.c */
-extern struct options global_options;
-extern struct options global_s_options;
-extern struct options global_w_options;
-extern struct environ global_environ;
+extern struct options *global_options;
+extern struct options *global_s_options;
+extern struct options *global_w_options;
+extern struct environ *global_environ;
 extern char	*shell_cmd;
 extern int	 debug_level;
 extern time_t	 start_time;
@@ -1420,6 +1417,19 @@ int		 checkshell(const char *);
 int		 areshell(const char *);
 void		 setblocking(int, int);
 const char	*find_home(void);
+
+/* proc.c */
+struct imsg;
+int	proc_send(struct tmuxpeer *, enum msgtype, int, const void *, size_t);
+int	proc_send_s(struct tmuxpeer *, enum msgtype, const char *);
+struct tmuxproc *proc_start(const char *, struct event_base *, int,
+	    void (*)(int));
+void	proc_loop(struct tmuxproc *, int (*)(void));
+void	proc_exit(struct tmuxproc *);
+struct tmuxpeer *proc_add_peer(struct tmuxproc *, int,
+	    void (*)(struct imsg *, void *), void *);
+void	proc_remove_peer(struct tmuxpeer *);
+void	proc_kill_peer(struct tmuxpeer *);
 
 /* cfg.c */
 extern int cfg_finished;
@@ -1454,7 +1464,6 @@ struct format_tree *format_create_flags(int);
 void		 format_free(struct format_tree *);
 void printflike(3, 4) format_add(struct format_tree *, const char *,
 		     const char *, ...);
-const char	*format_find(struct format_tree *, const char *);
 char		*format_expand_time(struct format_tree *, const char *, time_t);
 char		*format_expand(struct format_tree *, const char *);
 void		 format_defaults(struct format_tree *, struct client *,
@@ -1498,10 +1507,10 @@ void	notify_session_created(struct session *);
 void	notify_session_closed(struct session *);
 
 /* options.c */
-int	options_cmp(struct options_entry *, struct options_entry *);
-RB_PROTOTYPE(options_tree, options_entry, entry, options_cmp);
-void	options_init(struct options *, struct options *);
+struct options *options_create(struct options *);
 void	options_free(struct options *);
+struct options_entry *options_first(struct options *);
+struct options_entry *options_next(struct options_entry *);
 struct options_entry *options_find1(struct options *, const char *);
 struct options_entry *options_find(struct options *, const char *);
 void	options_remove(struct options *, const char *);
@@ -1528,16 +1537,16 @@ int	options_table_find(const char *, const struct options_table_entry **,
 
 /* job.c */
 extern struct joblist all_jobs;
-struct job *job_run(const char *, struct session *, int,
+struct job *job_run(const char *, struct session *, const char *,
 	    void (*)(struct job *), void (*)(void *), void *);
 void	job_free(struct job *);
 void	job_died(struct job *, int);
 
 /* environ.c */
-int	environ_cmp(struct environ_entry *, struct environ_entry *);
-RB_PROTOTYPE(environ, environ_entry, entry, environ_cmp);
-void	environ_init(struct environ *);
+struct environ *environ_create(void);
 void	environ_free(struct environ *);
+struct environ_entry *environ_first(struct environ *);
+struct environ_entry *environ_next(struct environ_entry *);
 void	environ_copy(struct environ *, struct environ *);
 struct environ_entry *environ_find(struct environ *, const char *);
 void	environ_set(struct environ *, const char *, const char *);
@@ -1547,6 +1556,7 @@ void	environ_update(const char *, struct environ *, struct environ *);
 void	environ_push(struct environ *);
 
 /* tty.c */
+void	tty_create_log(void);
 void	tty_init_termios(int, struct termios *, struct bufferevent *);
 void	tty_raw(struct tty *, const char *);
 void	tty_attributes(struct tty *, const struct grid_cell *,
@@ -1729,6 +1739,7 @@ void	alerts_reset_all(void);
 void	alerts_queue(struct window *, int);
 
 /* server.c */
+extern struct tmuxproc *server_proc;
 extern struct clients clients;
 extern struct session *marked_session;
 extern struct winlink *marked_winlink;
@@ -1750,16 +1761,10 @@ void	 server_client_create(int);
 int	 server_client_open(struct client *, char **);
 void	 server_client_unref(struct client *);
 void	 server_client_lost(struct client *);
-void	 server_client_callback(int, short, void *);
 void	 server_client_loop(void);
 
 /* server-fn.c */
 void	 server_fill_environ(struct session *, struct environ *);
-void	 server_write_ready(struct client *);
-int	 server_write_client(struct client *, enum msgtype, const void *,
-	     size_t);
-void	 server_write_session(struct session *, enum msgtype, const void *,
-	     size_t);
 void	 server_redraw_client(struct client *);
 void	 server_status_client(struct client *);
 void	 server_redraw_session(struct session *);
@@ -1782,7 +1787,6 @@ void	 server_destroy_session(struct session *);
 void	 server_check_unattached(void);
 void	 server_set_identify(struct client *);
 void	 server_clear_identify(struct client *);
-void	 server_update_event(struct client *);
 void	 server_push_stdout(struct client *);
 void	 server_push_stderr(struct client *);
 int	 server_set_stdin_callback(struct client *, void (*)(struct client *,
@@ -1980,8 +1984,8 @@ struct window	*window_find_by_id(u_int);
 void		 window_update_activity(struct window *);
 struct window	*window_create1(u_int, u_int);
 struct window	*window_create(const char *, int, char **, const char *,
-		     const char *, int, struct environ *, struct termios *,
-		     u_int, u_int, u_int, char **);
+		     const char *, const char *, struct environ *,
+		     struct termios *, u_int, u_int, u_int, char **);
 void		 window_destroy(struct window *);
 struct window_pane *window_get_active_at(struct window *, u_int, u_int);
 struct window_pane *window_find_string(struct window *, const char *);
@@ -2008,7 +2012,7 @@ struct window_pane *window_pane_find_by_id(u_int);
 struct window_pane *window_pane_create(struct window *, u_int, u_int, u_int);
 void		 window_pane_destroy(struct window_pane *);
 int		 window_pane_spawn(struct window_pane *, int, char **,
-		     const char *, const char *, int, struct environ *,
+		     const char *, const char *, const char *, struct environ *,
 		     struct termios *, char **);
 void		 window_pane_resize(struct window_pane *, u_int, u_int);
 void		 window_pane_alternate_on(struct window_pane *,
@@ -2083,6 +2087,7 @@ void printflike(2, 3) window_copy_add(struct window_pane *, const char *, ...);
 void		 window_copy_vadd(struct window_pane *, const char *, va_list);
 void		 window_copy_pageup(struct window_pane *);
 void		 window_copy_start_drag(struct client *, struct mouse_event *);
+int		 window_copy_scroll_position(struct window_pane *);
 
 /* window-choose.c */
 extern const struct window_mode window_choose_mode;
@@ -2111,7 +2116,7 @@ char	*format_window_name(struct window *);
 char	*parse_window_name(const char *);
 
 /* signal.c */
-void	set_signals(void(*)(int, short, void *));
+void	set_signals(void(*)(int, short, void *), void *);
 void	clear_signals(int);
 
 /* control.c */
@@ -2141,8 +2146,8 @@ struct session	*session_find(const char *);
 struct session	*session_find_by_id_str(const char *);
 struct session	*session_find_by_id(u_int);
 struct session	*session_create(const char *, int, char **, const char *,
-		     int, struct environ *, struct termios *, int, u_int,
-		     u_int, char **);
+		     const char *, struct environ *, struct termios *, int,
+		     u_int, u_int, char **);
 void		 session_destroy(struct session *);
 void		 session_unref(struct session *);
 int		 session_check_name(const char *);
@@ -2150,7 +2155,7 @@ void		 session_update_activity(struct session *, struct timeval *);
 struct session	*session_next_session(struct session *);
 struct session	*session_previous_session(struct session *);
 struct winlink	*session_new(struct session *, const char *, int, char **,
-		     const char *, int, int, char **);
+		     const char *, const char *, int, char **);
 struct winlink	*session_attach(struct session *, struct window *, int,
 		     char **);
 int		 session_detach(struct session *, struct winlink *);

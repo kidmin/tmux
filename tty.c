@@ -31,6 +31,8 @@
 
 #include "tmux.h"
 
+static int tty_log_fd = -1;
+
 void	tty_read_callback(struct bufferevent *, void *);
 void	tty_error_callback(struct bufferevent *, short, void *);
 
@@ -59,6 +61,18 @@ void	tty_default_colours(struct grid_cell *, const struct window_pane *);
 #define tty_pane_full_width(tty, ctx) \
 	((ctx)->xoff == 0 && screen_size_x((ctx)->wp->screen) >= (tty)->sx)
 
+void
+tty_create_log(void)
+{
+	char	name[64];
+
+	xsnprintf(name, sizeof name, "tmux-out-%ld.log", (long)getpid());
+
+	tty_log_fd = open(name, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+	if (tty_log_fd != -1 && fcntl(tty_log_fd, F_SETFD, FD_CLOEXEC) == -1)
+		fatal("fcntl failed");
+}
+
 int
 tty_init(struct tty *tty, struct client *c, int fd, char *term)
 {
@@ -68,7 +82,6 @@ tty_init(struct tty *tty, struct client *c, int fd, char *term)
 		return (-1);
 
 	memset(tty, 0, sizeof *tty);
-	tty->log_fd = -1;
 
 	if (term == NULL || *term == '\0')
 		tty->termname = xstrdup("unknown");
@@ -139,17 +152,6 @@ tty_set_size(struct tty *tty, u_int sx, u_int sy) {
 int
 tty_open(struct tty *tty, char **cause)
 {
-	char	out[64];
-	int	fd;
-
-	if (debug_level > 3) {
-		xsnprintf(out, sizeof out, "tmux-out-%ld.log", (long) getpid());
-		fd = open(out, O_WRONLY|O_CREAT|O_TRUNC, 0644);
-		if (fd != -1 && fcntl(fd, F_SETFD, FD_CLOEXEC) == -1)
-			fatal("fcntl failed");
-		tty->log_fd = fd;
-	}
-
 	tty->term = tty_term_find(tty->termname, tty->fd, cause);
 	if (tty->term == NULL) {
 		tty_close(tty);
@@ -228,8 +230,8 @@ tty_start_tty(struct tty *tty)
 	if (tty_term_has(tty->term, TTYC_KMOUS))
 		tty_puts(tty, "\033[?1000l\033[?1002l\033[?1006l\033[?1005l");
 
-	if (tty_term_has(tty->term, TTYC_XT)) {
-		if (options_get_number(&global_options, "focus-events")) {
+	if (tty_term_flag(tty->term, TTYC_XT)) {
+		if (options_get_number(global_options, "focus-events")) {
 			tty->flags |= TTY_FOCUS;
 			tty_puts(tty, "\033[?1004h");
 		}
@@ -293,7 +295,7 @@ tty_stop_tty(struct tty *tty)
 	if (tty_term_has(tty->term, TTYC_KMOUS))
 		tty_raw(tty, "\033[?1000l\033[?1002l\033[?1006l\033[?1005l");
 
-	if (tty_term_has(tty->term, TTYC_XT)) {
+	if (tty_term_flag(tty->term, TTYC_XT)) {
 		if (tty->flags & TTY_FOCUS) {
 			tty->flags &= ~TTY_FOCUS;
 			tty_raw(tty, "\033[?1004l");
@@ -308,11 +310,6 @@ tty_stop_tty(struct tty *tty)
 void
 tty_close(struct tty *tty)
 {
-	if (tty->log_fd != -1) {
-		close(tty->log_fd);
-		tty->log_fd = -1;
-	}
-
 	if (event_initialized(&tty->key_timer))
 		evtimer_del(&tty->key_timer);
 	tty_stop_tty(tty);
@@ -338,10 +335,8 @@ tty_free(struct tty *tty)
 	tty_close(tty);
 
 	free(tty->ccolour);
-	if (tty->path != NULL)
-		free(tty->path);
-	if (tty->termname != NULL)
-		free(tty->termname);
+	free(tty->path);
+	free(tty->termname);
 }
 
 void
@@ -408,8 +403,8 @@ tty_puts(struct tty *tty, const char *s)
 		return;
 	bufferevent_write(tty->event, s, strlen(s));
 
-	if (tty->log_fd != -1)
-		write(tty->log_fd, s, strlen(s));
+	if (tty_log_fd != -1)
+		write(tty_log_fd, s, strlen(s));
 }
 
 void
@@ -440,16 +435,16 @@ tty_putc(struct tty *tty, u_char ch)
 			tty->cx++;
 	}
 
-	if (tty->log_fd != -1)
-		write(tty->log_fd, &ch, 1);
+	if (tty_log_fd != -1)
+		write(tty_log_fd, &ch, 1);
 }
 
 void
 tty_putn(struct tty *tty, const void *buf, size_t len, u_int width)
 {
 	bufferevent_write(tty->event, buf, len);
-	if (tty->log_fd != -1)
-		write(tty->log_fd, buf, len);
+	if (tty_log_fd != -1)
+		write(tty_log_fd, buf, len);
 	tty->cx += width;
 }
 
@@ -459,7 +454,7 @@ tty_set_italics(struct tty *tty)
 	const char	*s;
 
 	if (tty_term_has(tty->term, TTYC_SITM)) {
-		s = options_get_string(&global_options, "default-terminal");
+		s = options_get_string(global_options, "default-terminal");
 		if (strcmp(s, "screen") != 0 && strncmp(s, "screen-", 7) != 0) {
 			tty_putcode(tty, TTYC_SITM);
 			return;
@@ -1648,6 +1643,13 @@ tty_try_256(struct tty *tty, u_char colour, const char *type)
 	char	s[32];
 
 	/*
+	 * If the user has specified -2 to the client, setaf and setab may not
+	 * work (or they may not want to use them), so send the usual sequence.
+	 */
+	if (tty->term_flags & TERM_256COLOURS)
+		goto fallback;
+
+	/*
 	 * If the terminfo entry has 256 colours and setaf and setab exist,
 	 * assume that they work correctly.
 	 */
@@ -1663,13 +1665,6 @@ tty_try_256(struct tty *tty, u_char colour, const char *type)
 		}
 		return (0);
 	}
-
-	/*
-	 * If the user has specified -2 to the client, setaf and setab may not
-	 * work, so send the usual sequence.
-	 */
-	if (tty->term_flags & TERM_256COLOURS)
-		goto fallback;
 
 	return (-1);
 
@@ -1688,8 +1683,8 @@ tty_default_colours(struct grid_cell *gc, const struct window_pane *wp)
 		return;
 
 	pgc = &wp->colgc;
-	agc = options_get_style(&wp->window->options, "window-active-style");
-	wgc = options_get_style(&wp->window->options, "window-style");
+	agc = options_get_style(wp->window->options, "window-active-style");
+	wgc = options_get_style(wp->window->options, "window-style");
 
 	if (gc->fg == 8 && !(gc->flags & GRID_FLAG_FG256)) {
 		if (pgc->fg != 8 || (pgc->flags & GRID_FLAG_FG256)) {
