@@ -871,7 +871,7 @@ input_parse(struct window_pane *wp)
 	rawlen = EVBUFFER_LENGTH(evb);
 	notify_input(wp, evb);
 
-	encoding = options_get_string(&wp->window->options, "output-encoding");
+	encoding = options_get_string(wp->window->options, "output-encoding");
 	if (strcasecmp(encoding, ictx->cur_encoding) != 0) {
 		/* 'output-encoding' is updated; (re)open iconv. */
 		log_debug("%s: output-encoding %s -> %s", __func__,
@@ -895,9 +895,9 @@ input_parse(struct window_pane *wp)
 				    "reverting to %s", encoding,
 				    ictx->cur_encoding);
 			}
-			options_set_string(&wp->window->options,
+			options_set_string(wp->window->options,
 			    "output-encoding", "%s", ictx->cur_encoding);
-			encoding = options_get_string(&wp->window->options,
+			encoding = options_get_string(wp->window->options,
 			    "output-encoding");
 			ictx->iconv_ctx = iconv_open("UTF-8", encoding);
 			/* Failed to revert; something bad happens. */
@@ -910,7 +910,7 @@ input_parse(struct window_pane *wp)
 		ictx->cur_encoding = xstrdup(encoding);
 	}
 
-	if (options_get_number(&wp->window->options, "utf8") == 1 &&
+	if (options_get_number(wp->window->options, "utf8") == 1 &&
 	    strcasecmp(encoding, "UTF-8") != 0) {
 		size_t			 rawleftlen, utf8leftlen, prevlen;
 		u_char			*rawp, *utf8p;
