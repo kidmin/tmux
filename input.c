@@ -902,16 +902,15 @@ input_parse(struct window_pane *wp)
 			ictx->iconv_ctx = iconv_open("UTF-8", encoding);
 			/* Failed to revert; something bad happens. */
 			if (ictx->iconv_ctx == (iconv_t)-1)
-				log_fatalx("iconv_open() failed: encoding: %s, "
-				    "errno: %d", encoding, errno);
+				fatal("iconv_open() failed: encoding: %s",
+				    encoding);
 		}
 		log_debug("%s: iconv_ctx %p", __func__, ictx->iconv_ctx);
 		free(ictx->cur_encoding);
 		ictx->cur_encoding = xstrdup(encoding);
 	}
 
-	if (options_get_number(wp->window->options, "utf8") == 1 &&
-	    strcasecmp(encoding, "UTF-8") != 0) {
+	if (strcasecmp(encoding, "UTF-8") != 0) {
 		size_t			 rawleftlen, utf8leftlen, prevlen;
 		u_char			*rawp, *utf8p;
 		static u_char		*utf8buf = NULL;
