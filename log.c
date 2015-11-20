@@ -32,7 +32,7 @@ void	 log_vwrite(const char *, va_list);
 
 /* Log callback for libevent. */
 void
-log_event_cb(unused int severity, const char *msg)
+log_event_cb(__unused int severity, const char *msg)
 {
 	log_debug("%s", msg);
 }
@@ -101,7 +101,7 @@ log_debug(const char *msg, ...)
 
 /* Log a critical error with error string and die. */
 __dead void
-log_fatal(const char *msg, ...)
+fatal(const char *msg, ...)
 {
 	char	*fmt;
 	va_list	 ap;
@@ -115,7 +115,7 @@ log_fatal(const char *msg, ...)
 
 /* Log a critical error and die. */
 __dead void
-log_fatalx(const char *msg, ...)
+fatalx(const char *msg, ...)
 {
 	char	*fmt;
 	va_list	 ap;

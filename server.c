@@ -188,7 +188,6 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 	TAILQ_INIT(&session_groups);
 	mode_key_init_trees();
 	key_bindings_init();
-	utf8_build();
 
 	start_time = time(NULL);
 
@@ -301,7 +300,7 @@ server_update_socket(void)
 
 /* Callback for server socket. */
 void
-server_accept(int fd, short events, unused void *data)
+server_accept(int fd, short events, __unused void *data)
 {
 	struct sockaddr_storage	sa;
 	socklen_t		slen = sizeof sa;

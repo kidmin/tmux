@@ -863,8 +863,7 @@ window_pane_spawn(struct window_pane *wp, int argc, char **argv,
 			memcpy(tio2.c_cc, tio->c_cc, sizeof tio2.c_cc);
 		tio2.c_cc[VERASE] = '\177';
 #ifdef IUTF8
-		if (options_get_number(wp->window->options, "utf8"))
-			tio2.c_iflag |= IUTF8;
+		tio2.c_iflag |= IUTF8;
 #endif
 		if (tcsetattr(STDIN_FILENO, TCSANOW, &tio2) != 0)
 			fatal("tcgetattr failed");
@@ -930,13 +929,13 @@ window_pane_spawn(struct window_pane *wp, int argc, char **argv,
 }
 
 void
-window_pane_timer_callback(unused int fd, unused short events, void *data)
+window_pane_timer_callback(__unused int fd, __unused short events, void *data)
 {
 	window_pane_read_callback(NULL, data);
 }
 
 void
-window_pane_read_callback(unused struct bufferevent *bufev, void *data)
+window_pane_read_callback(__unused struct bufferevent *bufev, void *data)
 {
 	struct window_pane	*wp = data;
 	struct evbuffer		*evb = wp->event->input;
@@ -982,8 +981,8 @@ start_timer:
 }
 
 void
-window_pane_error_callback(unused struct bufferevent *bufev, unused short what,
-    void *data)
+window_pane_error_callback(__unused struct bufferevent *bufev,
+    __unused short what, void *data)
 {
 	struct window_pane *wp = data;
 
@@ -1116,7 +1115,7 @@ window_pane_reset_mode(struct window_pane *wp)
 
 void
 window_pane_key(struct window_pane *wp, struct client *c, struct session *s,
-    int key, struct mouse_event *m)
+    key_code key, struct mouse_event *m)
 {
 	struct window_pane	*wp2;
 

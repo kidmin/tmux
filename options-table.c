@@ -84,7 +84,7 @@ const struct options_table_entry server_options_table[] = {
 
 	{ .name = "history-file",
 	  .type = OPTIONS_TABLE_STRING,
-	  .default_str = NULL
+	  .default_str = ""
 	},
 
 	{ .name = "message-limit",
@@ -255,11 +255,6 @@ const struct options_table_entry session_options_table[] = {
 	  .default_num = 0
 	},
 
-	{ .name = "mouse-utf8",
-	  .type = OPTIONS_TABLE_FLAG,
-	  .default_num = 0
-	},
-
 	{ .name = "prefix",
 	  .type = OPTIONS_TABLE_KEY,
 	  .default_num = '\002',
@@ -418,11 +413,6 @@ const struct options_table_entry session_options_table[] = {
 	{ .name = "status-style",
 	  .type = OPTIONS_TABLE_STYLE,
 	  .default_str = "bg=green,fg=black"
-	},
-
-	{ .name = "status-utf8",
-	  .type = OPTIONS_TABLE_FLAG,
-	  .default_num = 0 /* overridden in main() */
 	},
 
 	{ .name = "update-environment",
@@ -631,11 +621,6 @@ const struct options_table_entry window_options_table[] = {
 	{ .name = "synchronize-panes",
 	  .type = OPTIONS_TABLE_FLAG,
 	  .default_num = 0
-	},
-
-	{ .name = "utf8",
-	  .type = OPTIONS_TABLE_FLAG,
-	  .default_num = 0 /* overridden in main() */
 	},
 
 	{ .name = "window-active-style",

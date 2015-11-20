@@ -29,10 +29,10 @@ char			*osdep_get_cwd(int);
 struct event_base	*osdep_event_init(void);
 int			 osdep_getloadavg(double[3]);
 
-#define unused __attribute__ ((unused))
+#define __unused __attribute__ ((__unused__))
 
 char *
-osdep_get_name(int fd, unused char *tty)
+osdep_get_name(int fd, __unused char *tty)
 {
 	struct proc_bsdinfo		bsdinfo;
 	pid_t				pgrp;
