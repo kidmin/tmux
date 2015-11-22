@@ -646,6 +646,7 @@ const struct options_table_entry options_table[] = {
 
 	{ .name = "output-encoding",
 	  .type = OPTIONS_TABLE_STRING,
+	  .scope = OPTIONS_TABLE_WINDOW,
 	  .default_str = "UTF-8"
 	},
 
