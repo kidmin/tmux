@@ -33,19 +33,25 @@ enum cmd_retval	 cmd_list_keys_table(struct cmd *, struct cmd_q *);
 enum cmd_retval	 cmd_list_keys_commands(struct cmd_q *);
 
 const struct cmd_entry cmd_list_keys_entry = {
-	"list-keys", "lsk",
-	"t:T:", 0, 0,
-	"[-t mode-table] [-T key-table]",
-	0,
-	cmd_list_keys_exec
+	.name = "list-keys",
+	.alias = "lsk",
+
+	.args = { "t:T:", 0, 0 },
+	.usage = "[-t mode-table] [-T key-table]",
+
+	.flags = CMD_STARTSERVER,
+	.exec = cmd_list_keys_exec
 };
 
 const struct cmd_entry cmd_list_commands_entry = {
-	"list-commands", "lscm",
-	"", 0, 0,
-	"",
-	0,
-	cmd_list_keys_exec
+	.name = "list-commands",
+	.alias = "lscm",
+
+	.args = { "", 0, 0 },
+	.usage = "",
+
+	.flags = CMD_STARTSERVER,
+	.exec = cmd_list_keys_exec
 };
 
 enum cmd_retval
@@ -56,7 +62,6 @@ cmd_list_keys_exec(struct cmd *self, struct cmd_q *cmdq)
 	struct key_binding	*bd;
 	const char		*key, *tablename, *r;
 	char			*cp, tmp[BUFSIZ];
-	size_t			 used;
 	int			 repeat, width, tablewidth, keywidth;
 
 	if (self->entry == &cmd_list_commands_entry)
@@ -115,11 +120,9 @@ cmd_list_keys_exec(struct cmd *self, struct cmd_q *cmdq)
 			strlcat(tmp, " ", sizeof tmp);
 			free(cp);
 
-			used = strlen(tmp);
-			if (used < (sizeof tmp) - 1) {
-				cmd_list_print(bd->cmdlist, tmp + used,
-				    (sizeof tmp) - used);
-			}
+			cp = cmd_list_print(bd->cmdlist);
+			strlcat(tmp, cp, sizeof tmp);
+			free(cp);
 
 			cmdq_print(cmdq, "bind-key %s", tmp);
 		}

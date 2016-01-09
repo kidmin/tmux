@@ -197,7 +197,7 @@ const struct options_table_entry options_table[] = {
 	{ .name = "display-time",
 	  .type = OPTIONS_TABLE_NUMBER,
 	  .scope = OPTIONS_TABLE_SESSION,
-	  .minimum = 1,
+	  .minimum = 0,
 	  .maximum = INT_MAX,
 	  .default_num = 750
 	},
@@ -208,6 +208,12 @@ const struct options_table_entry options_table[] = {
 	  .minimum = 0,
 	  .maximum = INT_MAX,
 	  .default_num = 2000
+	},
+
+	{ .name = "key-table",
+	  .type = OPTIONS_TABLE_STRING,
+	  .scope = OPTIONS_TABLE_SESSION,
+	  .default_str = "root"
 	},
 
 	{ .name = "lock-after-time",
@@ -897,6 +903,8 @@ options_table_populate_tree(enum options_table_scope scope, struct options *oo)
 	const struct options_table_entry	*oe;
 
 	for (oe = options_table; oe->name != NULL; oe++) {
+		if (oe->scope == OPTIONS_TABLE_NONE)
+			fatalx("no scope for %s", oe->name);
 		if (oe->scope != scope)
 			continue;
 		switch (oe->type) {

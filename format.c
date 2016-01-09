@@ -482,14 +482,7 @@ format_cb_pane_tabs(struct format_tree *ft, struct format_entry *fe)
 
 /* Create a new tree. */
 struct format_tree *
-format_create(void)
-{
-	return (format_create_flags(0));
-}
-
-/* Create a new tree for the status line. */
-struct format_tree *
-format_create_flags(int flags)
+format_create(struct cmd_q *cmdq, int flags)
 {
 	struct format_tree	*ft;
 	double			 la[3];
@@ -506,6 +499,11 @@ format_create_flags(int flags)
 	format_add_cb(ft, "host", format_cb_host);
 	format_add_cb(ft, "host_short", format_cb_host_short);
 	format_add_cb(ft, "pid", format_cb_pid);
+	format_add(ft, "socket_path", "%s", socket_path);
+	format_add_tv(ft, "start_time", &start_time);
+
+	if (cmdq != NULL && cmdq->cmd != NULL)
+		format_add(ft, "command_name", "%s", cmdq->cmd->entry->name);
 
 	if (osdep_getloadavg(la) == 0)
 		format_add(ft, "load_average", "%.2f %.2f %.2f", la[0], la[1], la[2]);
@@ -1058,6 +1056,7 @@ void
 format_defaults_client(struct format_tree *ft, struct client *c)
 {
 	struct session	*s;
+	const char	*name;
 
 	if (ft->s == NULL)
 		ft->s = c->session;
@@ -1075,7 +1074,8 @@ format_defaults_client(struct format_tree *ft, struct client *c)
 	format_add_tv(ft, "client_created", &c->creation_time);
 	format_add_tv(ft, "client_activity", &c->activity_time);
 
-	if (strcmp(c->keytable->name, "root") == 0)
+	name = server_client_get_key_table(c);
+	if (strcmp(c->keytable->name, name) == 0)
 		format_add(ft, "client_prefix", "%d", 0);
 	else
 		format_add(ft, "client_prefix", "%d", 1);

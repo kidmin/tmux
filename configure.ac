@@ -1,6 +1,5 @@
 # configure.ac
 
-# Miscellaneous bits.
 AC_INIT(tmux, 2.2)
 
 AC_CONFIG_AUX_DIR(etc)
@@ -19,6 +18,7 @@ AM_PROG_CC_C_O
 AC_PROG_CPP
 AC_PROG_EGREP
 AC_PROG_INSTALL
+PKG_PROG_PKG_CONFIG
 
 # Default tmux.conf goes in /etc not ${prefix}/etc.
 test "$sysconfdir" = '${prefix}/etc' && sysconfdir=/etc
@@ -48,6 +48,7 @@ AC_ARG_ENABLE(
 )
 if test "x$found_static" = xyes; then
 	LDFLAGS="$LDFLAGS -static"
+	PKG_CONFIG="pkg-config --static"
 fi
 
 # Is this gcc?
@@ -143,12 +144,23 @@ if test "x$found_libevent" = xno; then
 	AC_MSG_ERROR("libevent not found")
 fi
 
-# Look for curses.
-AC_SEARCH_LIBS(
-	setupterm,
-	[terminfo curses ncurses tinfo],
-	found_curses=yes,
-	found_curses=no
+# Look for ncurses
+PKG_CHECK_MODULES(
+	LIBNCURSES,
+	ncurses,
+	[
+		CPPFLAGS="$LIBNCURSES_CFLAGS $CPPFLAGS"
+		LIBS="$LIBNCURSES_LIBS $LIBS"
+		found_curses=yes
+	],
+	[
+		AC_SEARCH_LIBS(
+			setupterm,
+			[ncurses curses terminfo],
+			found_curses=yes,
+			found_curses=no
+		)
+	]
 )
 if test "x$found_curses" = xno; then
 	AC_MSG_ERROR("curses not found")

@@ -40,18 +40,14 @@
  * Main server functions.
  */
 
-struct clients	 clients;
+struct clients		 clients;
 
-struct tmuxproc	*server_proc;
-int		 server_fd;
-int		 server_exit;
-struct event	 server_ev_accept;
+struct tmuxproc		*server_proc;
+int			 server_fd;
+int			 server_exit;
+struct event		 server_ev_accept;
 
-struct session		*marked_session;
-struct winlink		*marked_winlink;
-struct window		*marked_window;
-struct window_pane	*marked_window_pane;
-struct layout_cell	*marked_layout_cell;
+struct cmd_find_state	 marked_pane;
 
 int	server_create_socket(void);
 int	server_loop(void);
@@ -67,22 +63,18 @@ void	server_child_stopped(pid_t, int);
 void
 server_set_marked(struct session *s, struct winlink *wl, struct window_pane *wp)
 {
-	marked_session = s;
-	marked_winlink = wl;
-	marked_window = wl->window;
-	marked_window_pane = wp;
-	marked_layout_cell = wp->layout_cell;
+	cmd_find_clear_state(&marked_pane, NULL, 0);
+	marked_pane.s = s;
+	marked_pane.wl = wl;
+	marked_pane.w = wl->window;
+	marked_pane.wp = wp;
 }
 
 /* Clear marked pane. */
 void
 server_clear_marked(void)
 {
-	marked_session = NULL;
-	marked_winlink = NULL;
-	marked_window = NULL;
-	marked_window_pane = NULL;
-	marked_layout_cell = NULL;
+	cmd_find_clear_state(&marked_pane, NULL, 0);
 }
 
 /* Is this the marked pane? */
@@ -91,9 +83,9 @@ server_is_marked(struct session *s, struct winlink *wl, struct window_pane *wp)
 {
 	if (s == NULL || wl == NULL || wp == NULL)
 		return (0);
-	if (marked_session != s || marked_winlink != wl)
+	if (marked_pane.s != s || marked_pane.wl != wl)
 		return (0);
-	if (marked_window_pane != wp)
+	if (marked_pane.wp != wp)
 		return (0);
 	return (server_check_marked());
 }
@@ -102,25 +94,7 @@ server_is_marked(struct session *s, struct winlink *wl, struct window_pane *wp)
 int
 server_check_marked(void)
 {
-	struct winlink	*wl;
-
-	if (marked_window_pane == NULL)
-		return (0);
-	if (marked_layout_cell != marked_window_pane->layout_cell)
-		return (0);
-
-	if (!session_alive(marked_session))
-		return (0);
-	RB_FOREACH(wl, winlinks, &marked_session->windows) {
-		if (wl->window == marked_window && wl == marked_winlink)
-			break;
-	}
-	if (wl == NULL)
-		return (0);
-
-	if (!window_has_pane(marked_window, marked_window_pane))
-		return (0);
-	return (window_pane_visible(marked_window_pane));
+	return (cmd_find_valid_state(&marked_pane));
 }
 
 /* Create server socket. */
@@ -172,12 +146,12 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 	}
 	close(pair[0]);
 
-	if (debug_level > 3)
+	if (log_get_level() > 3)
 		tty_create_log();
 
 #ifdef __OpenBSD__
-	if (pledge("stdio rpath wpath cpath fattr unix recvfd proc exec tty "
-	    "ps", NULL) != 0)
+	if (pledge("stdio rpath wpath cpath fattr unix getpw recvfd proc exec "
+	    "tty ps", NULL) != 0)
 		fatal("pledge failed");
 #endif
 
@@ -189,7 +163,7 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 	mode_key_init_trees();
 	key_bindings_init();
 
-	start_time = time(NULL);
+	gettimeofday(&start_time, NULL);
 
 	server_fd = server_create_socket();
 	if (server_fd == -1)
@@ -197,9 +171,11 @@ server_start(struct event_base *base, int lockfd, char *lockfile)
 	server_update_socket();
 	server_client_create(pair[1]);
 
-	unlink(lockfile);
-	free(lockfile);
-	close(lockfd);
+	if (lockfd >= 0) {
+		unlink(lockfile);
+		free(lockfile);
+		close(lockfd);
+	}
 
 	start_cfg();
 
@@ -413,7 +389,7 @@ server_child_exited(pid_t pid, int status)
 		TAILQ_FOREACH(wp, &w->panes, entry) {
 			if (wp->pid == pid) {
 				wp->status = status;
-				server_destroy_pane(wp);
+				server_destroy_pane(wp, 1);
 				break;
 			}
 		}

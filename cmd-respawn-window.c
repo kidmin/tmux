@@ -30,36 +30,37 @@
 enum cmd_retval	 cmd_respawn_window_exec(struct cmd *, struct cmd_q *);
 
 const struct cmd_entry cmd_respawn_window_entry = {
-	"respawn-window", "respawnw",
-	"kt:", 0, -1,
-	"[-k] " CMD_TARGET_WINDOW_USAGE " [command]",
-	0,
-	cmd_respawn_window_exec
+	.name = "respawn-window",
+	.alias = "respawnw",
+
+	.args = { "kt:", 0, -1 },
+	.usage = "[-k] " CMD_TARGET_WINDOW_USAGE " [command]",
+
+	.tflag = CMD_WINDOW,
+
+	.flags = 0,
+	.exec = cmd_respawn_window_exec
 };
 
 enum cmd_retval
 cmd_respawn_window_exec(struct cmd *self, struct cmd_q *cmdq)
 {
 	struct args		*args = self->args;
-	struct winlink		*wl;
-	struct window		*w;
+	struct session		*s = cmdq->state.tflag.s;
+	struct winlink		*wl = cmdq->state.tflag.wl;
+	struct window		*w = wl->window;
 	struct window_pane	*wp;
-	struct session		*s;
 	struct environ		*env;
 	const char		*path;
 	char		 	*cause;
 	struct environ_entry	*envent;
 
-	if ((wl = cmd_find_window(cmdq, args_get(args, 't'), &s)) == NULL)
-		return (CMD_RETURN_ERROR);
-	w = wl->window;
-
 	if (!args_has(self->args, 'k')) {
 		TAILQ_FOREACH(wp, &w->panes, entry) {
 			if (wp->fd == -1)
 				continue;
-			cmdq_error(cmdq,
-			    "window still active: %s:%d", s->name, wl->idx);
+			cmdq_error(cmdq, "window still active: %s:%d", s->name,
+			    wl->idx);
 			return (CMD_RETURN_ERROR);
 		}
 	}
@@ -89,7 +90,7 @@ cmd_respawn_window_exec(struct cmd *self, struct cmd_q *cmdq)
 		cmdq_error(cmdq, "respawn window failed: %s", cause);
 		free(cause);
 		environ_free(env);
-		server_destroy_pane(wp);
+		server_destroy_pane(wp, 0);
 		return (CMD_RETURN_ERROR);
 	}
 	layout_init(w, wp);

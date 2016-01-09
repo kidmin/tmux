@@ -33,11 +33,15 @@ enum cmd_retval	 cmd_bind_key_mode_table(struct cmd *, struct cmd_q *,
 		     key_code);
 
 const struct cmd_entry cmd_bind_key_entry = {
-	"bind-key", "bind",
-	"cnrt:T:", 1, -1,
-	"[-cnr] [-t mode-table] [-T key-table] key command [arguments]",
-	0,
-	cmd_bind_key_exec
+	.name = "bind-key",
+	.alias = "bind",
+
+	.args = { "cnrt:T:", 1, -1 },
+	.usage = "[-cnr] [-t mode-table] [-T key-table] key command "
+		 "[arguments]",
+
+	.flags = 0,
+	.exec = cmd_bind_key_exec
 };
 
 enum cmd_retval
@@ -62,7 +66,7 @@ cmd_bind_key_exec(struct cmd *self, struct cmd_q *cmdq)
 	}
 
 	key = key_string_lookup_string(args->argv[0]);
-	if (key == KEYC_NONE) {
+	if (key == KEYC_NONE || key == KEYC_UNKNOWN) {
 		cmdq_error(cmdq, "unknown key: %s", args->argv[0]);
 		return (CMD_RETURN_ERROR);
 	}

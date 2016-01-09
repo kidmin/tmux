@@ -567,7 +567,7 @@ window_add_pane(struct window *w, u_int hlimit)
 void
 window_lost_pane(struct window *w, struct window_pane *wp)
 {
-	if (wp == marked_window_pane)
+	if (wp == marked_pane.wp)
 		server_clear_marked();
 
 	if (wp == w->active) {
@@ -578,6 +578,8 @@ window_lost_pane(struct window *w, struct window_pane *wp)
 			if (w->active == NULL)
 				w->active = TAILQ_NEXT(wp, entry);
 		}
+		if (w->active != NULL)
+			w->active->flags |= PANE_CHANGED;
 	} else if (wp == w->last)
 		w->last = NULL;
 }
@@ -688,7 +690,7 @@ window_printable_flags(struct session *s, struct winlink *wl)
 		flags[pos++] = '*';
 	if (wl == TAILQ_FIRST(&s->lastw))
 		flags[pos++] = '-';
-	if (server_check_marked() && wl == marked_winlink)
+	if (server_check_marked() && wl == marked_pane.wl)
 		flags[pos++] = 'M';
 	if (wl->window->flags & WINDOW_ZOOMED)
 		flags[pos++] = 'Z';
@@ -810,7 +812,7 @@ window_pane_spawn(struct window_pane *wp, int argc, char **argv,
     struct termios *tio, char **cause)
 {
 	struct winsize	 ws;
-	char		*argv0, *cmd, **argvp, paneid[16];
+	char		*argv0, *cmd, **argvp;
 	const char	*ptr, *first, *home;
 	struct termios	 tio2;
 #ifdef HAVE_UTEMPTER
@@ -871,9 +873,8 @@ window_pane_spawn(struct window_pane *wp, int argc, char **argv,
 		closefrom(STDERR_FILENO + 1);
 
 		if (path != NULL)
-			environ_set(env, "PATH", path);
-		xsnprintf(paneid, sizeof paneid, "%%%u", wp->id);
-		environ_set(env, "TMUX_PANE", paneid);
+			environ_set(env, "PATH", "%s", path);
+		environ_set(env, "TMUX_PANE", "%%%u", wp->id);
 		environ_push(env);
 
 		clear_signals(1);
@@ -960,7 +961,7 @@ window_pane_read_callback(__unused struct bufferevent *bufev, void *data)
 
 	new_size = EVBUFFER_LENGTH(evb) - wp->pipe_off;
 	if (wp->pipe_fd != -1 && new_size > 0) {
-		new_data = EVBUFFER_DATA(evb);
+		new_data = EVBUFFER_DATA(evb) + wp->pipe_off;
 		bufferevent_write(wp->pipe_event, new_data, new_size);
 	}
 
@@ -986,7 +987,7 @@ window_pane_error_callback(__unused struct bufferevent *bufev,
 {
 	struct window_pane *wp = data;
 
-	server_destroy_pane(wp);
+	server_destroy_pane(wp, 1);
 }
 
 void
@@ -1139,7 +1140,9 @@ window_pane_key(struct window_pane *wp, struct client *c, struct session *s,
 		TAILQ_FOREACH(wp2, &wp->window->panes, entry) {
 			if (wp2 == wp || wp2->mode != NULL)
 				continue;
-			if (wp2->fd != -1 && window_pane_visible(wp2))
+			if (wp2->fd == -1 || wp2->flags & PANE_INPUTOFF)
+				continue;
+			if (window_pane_visible(wp2))
 				input_key(wp2, key, NULL);
 		}
 	}

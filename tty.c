@@ -48,8 +48,8 @@ void	tty_colours_bg(struct tty *, const struct grid_cell *);
 int	tty_large_region(struct tty *, const struct tty_ctx *);
 int	tty_fake_bce(const struct tty *, const struct window_pane *);
 void	tty_redraw_region(struct tty *, const struct tty_ctx *);
-void	tty_emulate_repeat(
-	    struct tty *, enum tty_code_code, enum tty_code_code, u_int);
+void	tty_emulate_repeat(struct tty *, enum tty_code_code, enum tty_code_code,
+	    u_int);
 void	tty_repeat_space(struct tty *, u_int);
 void	tty_cell(struct tty *, const struct grid_cell *,
 	    const struct window_pane *);
@@ -161,8 +161,8 @@ tty_open(struct tty *tty, char **cause)
 
 	tty->flags &= ~(TTY_NOCURSOR|TTY_FREEZE|TTY_TIMER);
 
-	tty->event = bufferevent_new(
-	    tty->fd, tty_read_callback, NULL, tty_error_callback, tty);
+	tty->event = bufferevent_new(tty->fd, tty_read_callback, NULL,
+	    tty_error_callback, tty);
 
 	tty_start_tty(tty);
 
@@ -491,7 +491,7 @@ tty_update_mode(struct tty *tty, int mode, struct screen *s)
 {
 	int	changed;
 
-	if (s != NULL && strcmp(s->ccolour, tty->ccolour))
+	if (s != NULL && strcmp(s->ccolour, tty->ccolour) != 0)
 		tty_force_cursor_colour(tty, s->ccolour);
 
 	if (tty->flags & TTY_NOCURSOR)
@@ -521,21 +521,15 @@ tty_update_mode(struct tty *tty, int mode, struct screen *s)
 		}
 		tty->cstyle = s->cstyle;
 	}
-	if (changed & (ALL_MOUSE_MODES|MODE_MOUSE_UTF8)) {
+	if (changed & ALL_MOUSE_MODES) {
 		if (mode & ALL_MOUSE_MODES) {
 			/*
-			 * Enable the UTF-8 (1005) extension if configured to.
 			 * Enable the SGR (1006) extension unconditionally, as
 			 * this is safe from misinterpretation. Do it in this
 			 * order, because in some terminals it's the last one
 			 * that takes effect and SGR is the preferred one.
 			 */
-			if (mode & MODE_MOUSE_UTF8)
-				tty_puts(tty, "\033[?1005h");
-			else
-				tty_puts(tty, "\033[?1005l");
 			tty_puts(tty, "\033[?1006h");
-
 			if (mode & MODE_MOUSE_BUTTON)
 				tty_puts(tty, "\033[?1002h");
 			else if (mode & MODE_MOUSE_STANDARD)
@@ -545,10 +539,7 @@ tty_update_mode(struct tty *tty, int mode, struct screen *s)
 				tty_puts(tty, "\033[?1002l");
 			else if (tty->mode & MODE_MOUSE_STANDARD)
 				tty_puts(tty, "\033[?1000l");
-
 			tty_puts(tty, "\033[?1006l");
-			if (tty->mode & MODE_MOUSE_UTF8)
-				tty_puts(tty, "\033[?1005l");
 		}
 	}
 	if (changed & MODE_KKEYPAD) {
@@ -1197,8 +1188,8 @@ tty_reset(struct tty *tty)
 
 /* Set region inside pane. */
 void
-tty_region_pane(
-    struct tty *tty, const struct tty_ctx *ctx, u_int rupper, u_int rlower)
+tty_region_pane(struct tty *tty, const struct tty_ctx *ctx, u_int rupper,
+    u_int rlower)
 {
 	tty_region(tty, ctx->yoff + rupper, ctx->yoff + rlower);
 }
