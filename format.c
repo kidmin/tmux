@@ -188,7 +188,7 @@ static const char *format_upper[] = {
 	"window_index",	/* I */
 	NULL,		/* J */
 	NULL,		/* K */
-	NULL,		/* L */
+	"load_average",	/* L */
 	NULL,		/* M */
 	NULL,		/* N */
 	NULL,		/* O */
@@ -495,6 +495,19 @@ format_cb_host_short(__unused struct format_tree *ft)
 	if ((cp = strchr(host, '.')) != NULL)
 		*cp = '\0';
 	return (xstrdup(host));
+}
+
+/* Callback for load_average. */
+static void *
+format_cb_load_average(__unused struct format_tree *ft)
+{
+	double	 la[3];
+	char	*value;
+
+	if (osdep_getloadavg(la) != 0)
+		return (xstrdup(""));
+	xasprintf(&value, "%.2f %.2f %.2f", la[0], la[1], la[2]);
+	return (value);
 }
 
 /* Callback for pid. */
@@ -2779,6 +2792,9 @@ static const struct format_table_entry format_table[] = {
 	},
 	{ "last_window_index", FORMAT_TABLE_STRING,
 	  format_cb_last_window_index
+	},
+	{ "load_average", FORMAT_TABLE_STRING,
+	  format_cb_load_average
 	},
 	{ "mouse_all_flag", FORMAT_TABLE_STRING,
 	  format_cb_mouse_all_flag

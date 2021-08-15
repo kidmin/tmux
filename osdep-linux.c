@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
+#include <sys/sysinfo.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -99,4 +100,19 @@ osdep_event_init(void)
 	base = event_init();
 	unsetenv("EVENT_NOEPOLL");
 	return (base);
+}
+
+int
+osdep_getloadavg(double la[3])
+{
+	struct sysinfo sinfo;
+
+	if (sysinfo(&sinfo) != 0)
+		return (1);
+
+	la[0] = sinfo.loads[0] / (double) (1 << SI_LOAD_SHIFT);
+	la[1] = sinfo.loads[1] / (double) (1 << SI_LOAD_SHIFT);
+	la[2] = sinfo.loads[2] / (double) (1 << SI_LOAD_SHIFT);
+
+	return (0);
 }
