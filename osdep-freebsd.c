@@ -36,6 +36,7 @@ struct kinfo_proc	*cmp_procs(struct kinfo_proc *, struct kinfo_proc *);
 char			*osdep_get_name(int, char *);
 char			*osdep_get_cwd(int);
 struct event_base	*osdep_event_init(void);
+int			 osdep_getloadavg(double[3]);
 
 #ifndef nitems
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
@@ -205,4 +206,13 @@ osdep_event_init(void)
 	base = event_init();
 	unsetenv("EVENT_NOKQUEUE");
 	return (base);
+}
+
+int
+osdep_getloadavg(double la[3])
+{
+	if (getloadavg(la, 3) != 3)
+		return (1);
+
+	return (0);
 }
