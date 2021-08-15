@@ -18,6 +18,7 @@
 
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/loadavg.h>
 
 #include <fcntl.h>
 #include <procfs.h>
@@ -109,4 +110,13 @@ osdep_event_init(void)
 	base = event_init();
 	unsetenv("EVENT_NOEVPORT");
 	return (base);
+}
+
+int
+osdep_getloadavg(double la[3])
+{
+	if (getloadavg(la, 3) != 3)
+		return (1);
+
+	return (0);
 }

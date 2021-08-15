@@ -50,3 +50,9 @@ osdep_event_init(void)
 {
 	return (event_init());
 }
+
+int
+osdep_getloadavg(__unused double la[3])
+{
+	return (1);
+}
