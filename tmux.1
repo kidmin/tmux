@@ -3708,6 +3708,19 @@ for all terminal types matching
 The terminal entry value is passed through
 .Xr strunvis 3
 before interpretation.
+.It Xo Ic unicode-ambiguous-width
+.Op Ic narrow | wide
+.Xc
+Treat Unicode ambiguous-width characters as
+.Ic narrow
+or
+.Ic wide .
+Also, use ASCII line-drawing characters
+instead of Unicode Box Drawing characters if
+.Ic wide .
+The default is
+.Ic narrow .
+.Pp
 .It Ic user-keys[] Ar key
 Set list of user-defined key escape sequences.
 Each item is associated with a key named

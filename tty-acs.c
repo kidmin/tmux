@@ -26,45 +26,46 @@
 /* Table mapping ACS entries to UTF-8. */
 struct tty_acs_entry {
 	u_char		 key;
-	const char	*string;
+	const char	*u8string;
+	const char	*astring;
 };
 static const struct tty_acs_entry tty_acs_table[] = {
-	{ '+', "\342\206\222" },	/* arrow pointing right */
-	{ ',', "\342\206\220" },	/* arrow pointing left */
-	{ '-', "\342\206\221" },	/* arrow pointing up */
-	{ '.', "\342\206\223" },	/* arrow pointing down */
-	{ '0', "\342\226\256" },	/* solid square block */
-	{ '`', "\342\227\206" },	/* diamond */
-	{ 'a', "\342\226\222" },	/* checker board (stipple) */
-	{ 'b', "\342\220\211" },
-	{ 'c', "\342\220\214" },
-	{ 'd', "\342\220\215" },
-	{ 'e', "\342\220\212" },
-	{ 'f', "\302\260" },		/* degree symbol */
-	{ 'g', "\302\261" },		/* plus/minus */
-	{ 'h', "\342\220\244" },
-	{ 'i', "\342\220\213" },
-	{ 'j', "\342\224\230" },	/* lower right corner */
-	{ 'k', "\342\224\220" },	/* upper right corner */
-	{ 'l', "\342\224\214" },	/* upper left corner */
-	{ 'm', "\342\224\224" },	/* lower left corner */
-	{ 'n', "\342\224\274" },	/* large plus or crossover */
-	{ 'o', "\342\216\272" },	/* scan line 1 */
-	{ 'p', "\342\216\273" },	/* scan line 3 */
-	{ 'q', "\342\224\200" },	/* horizontal line */
-	{ 'r', "\342\216\274" },	/* scan line 7 */
-	{ 's', "\342\216\275" },	/* scan line 9 */
-	{ 't', "\342\224\234" },	/* tee pointing right */
-	{ 'u', "\342\224\244" },	/* tee pointing left */
-	{ 'v', "\342\224\264" },	/* tee pointing up */
-	{ 'w', "\342\224\254" },	/* tee pointing down */
-	{ 'x', "\342\224\202" },	/* vertical line */
-	{ 'y', "\342\211\244" },	/* less-than-or-equal-to */
-	{ 'z', "\342\211\245" },	/* greater-than-or-equal-to */
-	{ '{', "\317\200" },		/* greek pi */
-	{ '|', "\342\211\240" },	/* not-equal */
-	{ '}', "\302\243" },		/* UK pound sign */
-	{ '~', "\302\267" }		/* bullet */
+	{ '+', "\342\206\222", ">" },	/* arrow pointing right */
+	{ ',', "\342\206\220", "<" },	/* arrow pointing left */
+	{ '-', "\342\206\221", "^" },	/* arrow pointing up */
+	{ '.', "\342\206\223", "v" },	/* arrow pointing down */
+	{ '0', "\342\226\256", NULL },	/* solid square block */
+	{ '`', "\342\227\206", NULL },	/* diamond */
+	{ 'a', "\342\226\222", NULL },	/* checker board (stipple) */
+	{ 'b', "\342\220\211", NULL },
+	{ 'c', "\342\220\214", NULL },
+	{ 'd', "\342\220\215", NULL },
+	{ 'e', "\342\220\212", NULL },
+	{ 'f', "\302\260", NULL },	/* degree symbol */
+	{ 'g', "\302\261", NULL },	/* plus/minus */
+	{ 'h', "\342\220\244", NULL },
+	{ 'i', "\342\220\213", NULL },
+	{ 'j', "\342\224\230", "+" },	/* lower right corner */
+	{ 'k', "\342\224\220", "+" },	/* upper right corner */
+	{ 'l', "\342\224\214", "+" },	/* upper left corner */
+	{ 'm', "\342\224\224", "+" },	/* lower left corner */
+	{ 'n', "\342\224\274", NULL },	/* large plus or crossover */
+	{ 'o', "\342\216\272", NULL },	/* scan line 1 */
+	{ 'p', "\342\216\273", NULL },	/* scan line 3 */
+	{ 'q', "\342\224\200", "-" },	/* horizontal line */
+	{ 'r', "\342\216\274", NULL },	/* scan line 7 */
+	{ 's', "\342\216\275", NULL },	/* scan line 9 */
+	{ 't', "\342\224\234", "+" },	/* tee pointing right */
+	{ 'u', "\342\224\244", "+" },	/* tee pointing left */
+	{ 'v', "\342\224\264", "+" },	/* tee pointing up */
+	{ 'w', "\342\224\254", "+" },	/* tee pointing down */
+	{ 'x', "\342\224\202", "|" },	/* vertical line */
+	{ 'y', "\342\211\244", NULL },	/* less-than-or-equal-to */
+	{ 'z', "\342\211\245", NULL },	/* greater-than-or-equal-to */
+	{ '{', "\317\200", NULL },	/* greek pi */
+	{ '|', "\342\211\240", NULL },	/* not-equal */
+	{ '}', "\302\243", NULL },	/* UK pound sign */
+	{ '~', "\302\267", NULL }	/* bullet */
 };
 
 /* Table mapping UTF-8 to ACS entries. */
@@ -244,7 +245,14 @@ tty_acs_get(struct tty *tty, u_char ch)
 	    sizeof tty_acs_table[0], tty_acs_cmp);
 	if (entry == NULL)
 		return (NULL);
-	return (entry->string);
+	if (options_get_number(global_options, "unicode-ambiguous-width") == 0)
+		return (entry->u8string);
+	else {
+		if (entry->astring == NULL)
+			return (entry->u8string);
+		else
+			return (entry->astring);
+	}
 }
 
 /* Reverse UTF-8 into ACS. */
