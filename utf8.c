@@ -234,6 +234,200 @@ utf8_width(struct utf8_data *ud, int *width)
 #else
 	*width = wcwidth(wc);
 #endif
+	if (options_get_number(global_options, "unicode-ambiguous-width") == 1)
+	{
+		if (wc == 0x00a1 ||
+		    wc == 0x00a4 ||
+		    wc == 0x00a7 ||
+		    wc == 0x00a8 ||
+		    wc == 0x00aa ||
+		    wc == 0x00ad ||
+		    wc == 0x00ae ||
+		    wc == 0x00b0 ||
+		    wc == 0x00b1 ||
+		    (0x00b2 <= wc && wc <= 0x00b3) ||
+		    wc == 0x00b4 ||
+		    (0x00b6 <= wc && wc <= 0x00b7) ||
+		    wc == 0x00b8 ||
+		    wc == 0x00b9 ||
+		    wc == 0x00ba ||
+		    (0x00bc <= wc && wc <= 0x00be) ||
+		    wc == 0x00bf ||
+		    wc == 0x00c6 ||
+		    wc == 0x00d0 ||
+		    wc == 0x00d7 ||
+		    wc == 0x00d8 ||
+		    (0x00de <= wc && wc <= 0x00e1) ||
+		    wc == 0x00e6 ||
+		    (0x00e8 <= wc && wc <= 0x00ea) ||
+		    (0x00ec <= wc && wc <= 0x00ed) ||
+		    wc == 0x00f0 ||
+		    (0x00f2 <= wc && wc <= 0x00f3) ||
+		    wc == 0x00f7 ||
+		    (0x00f8 <= wc && wc <= 0x00fa) ||
+		    wc == 0x00fc ||
+		    wc == 0x00fe ||
+		    wc == 0x0101 ||
+		    wc == 0x0111 ||
+		    wc == 0x0113 ||
+		    wc == 0x011b ||
+		    (0x0126 <= wc && wc <= 0x0127) ||
+		    wc == 0x012b ||
+		    (0x0131 <= wc && wc <= 0x0133) ||
+		    wc == 0x0138 ||
+		    (0x013f <= wc && wc <= 0x0142) ||
+		    wc == 0x0144 ||
+		    (0x0148 <= wc && wc <= 0x014b) ||
+		    wc == 0x014d ||
+		    (0x0152 <= wc && wc <= 0x0153) ||
+		    (0x0166 <= wc && wc <= 0x0167) ||
+		    wc == 0x016b ||
+		    wc == 0x01ce ||
+		    wc == 0x01d0 ||
+		    wc == 0x01d2 ||
+		    wc == 0x01d4 ||
+		    wc == 0x01d6 ||
+		    wc == 0x01d8 ||
+		    wc == 0x01da ||
+		    wc == 0x01dc ||
+		    wc == 0x0251 ||
+		    wc == 0x0261 ||
+		    wc == 0x02c4 ||
+		    wc == 0x02c7 ||
+		    (0x02c9 <= wc && wc <= 0x02cb) ||
+		    wc == 0x02cd ||
+		    wc == 0x02d0 ||
+		    (0x02d8 <= wc && wc <= 0x02db) ||
+		    wc == 0x02dd ||
+		    wc == 0x02df ||
+		    (0x0300 <= wc && wc <= 0x036f) ||
+		    (0x0391 <= wc && wc <= 0x03a1) ||
+		    (0x03a3 <= wc && wc <= 0x03a9) ||
+		    (0x03b1 <= wc && wc <= 0x03c1) ||
+		    (0x03c3 <= wc && wc <= 0x03c9) ||
+		    wc == 0x0401 ||
+		    (0x0410 <= wc && wc <= 0x044f) ||
+		    wc == 0x0451 ||
+		    wc == 0x2010 ||
+		    (0x2013 <= wc && wc <= 0x2015) ||
+		    wc == 0x2016 ||
+		    wc == 0x2018 ||
+		    wc == 0x2019 ||
+		    wc == 0x201c ||
+		    wc == 0x201d ||
+		    (0x2020 <= wc && wc <= 0x2022) ||
+		    (0x2024 <= wc && wc <= 0x2027) ||
+		    wc == 0x2030 ||
+		    (0x2032 <= wc && wc <= 0x2033) ||
+		    wc == 0x2035 ||
+		    wc == 0x203b ||
+		    wc == 0x203e ||
+		    wc == 0x2074 ||
+		    wc == 0x207f ||
+		    (0x2081 <= wc && wc <= 0x2084) ||
+		    wc == 0x20ac ||
+		    wc == 0x2103 ||
+		    wc == 0x2105 ||
+		    wc == 0x2109 ||
+		    wc == 0x2113 ||
+		    wc == 0x2116 ||
+		    (0x2121 <= wc && wc <= 0x2122) ||
+		    wc == 0x2126 ||
+		    wc == 0x212b ||
+		    (0x2153 <= wc && wc <= 0x2154) ||
+		    (0x215b <= wc && wc <= 0x215e) ||
+		    (0x2160 <= wc && wc <= 0x216b) ||
+		    (0x2170 <= wc && wc <= 0x2179) ||
+		    wc == 0x2189 ||
+		    (0x2190 <= wc && wc <= 0x2194) ||
+		    (0x2195 <= wc && wc <= 0x2199) ||
+		    (0x21b8 <= wc && wc <= 0x21b9) ||
+		    wc == 0x21d2 ||
+		    wc == 0x21d4 ||
+		    wc == 0x21e7 ||
+		    wc == 0x2200 ||
+		    (0x2202 <= wc && wc <= 0x2203) ||
+		    (0x2207 <= wc && wc <= 0x2208) ||
+		    wc == 0x220b ||
+		    wc == 0x220f ||
+		    wc == 0x2211 ||
+		    wc == 0x2215 ||
+		    wc == 0x221a ||
+		    (0x221d <= wc && wc <= 0x2220) ||
+		    wc == 0x2223 ||
+		    wc == 0x2225 ||
+		    (0x2227 <= wc && wc <= 0x222c) ||
+		    wc == 0x222e ||
+		    (0x2234 <= wc && wc <= 0x2237) ||
+		    (0x223c <= wc && wc <= 0x223d) ||
+		    wc == 0x2248 ||
+		    wc == 0x224c ||
+		    wc == 0x2252 ||
+		    (0x2260 <= wc && wc <= 0x2261) ||
+		    (0x2264 <= wc && wc <= 0x2267) ||
+		    (0x226a <= wc && wc <= 0x226b) ||
+		    (0x226e <= wc && wc <= 0x226f) ||
+		    (0x2282 <= wc && wc <= 0x2283) ||
+		    (0x2286 <= wc && wc <= 0x2287) ||
+		    wc == 0x2295 ||
+		    wc == 0x2299 ||
+		    wc == 0x22a5 ||
+		    wc == 0x22bf ||
+		    wc == 0x2312 ||
+		    (0x2460 <= wc && wc <= 0x249b) ||
+		    (0x249c <= wc && wc <= 0x24e9) ||
+		    (0x24eb <= wc && wc <= 0x24ff) ||
+		    (0x2500 <= wc && wc <= 0x254b) ||
+		    (0x2550 <= wc && wc <= 0x2573) ||
+		    (0x2580 <= wc && wc <= 0x258f) ||
+		    (0x2592 <= wc && wc <= 0x2595) ||
+		    (0x25a0 <= wc && wc <= 0x25a1) ||
+		    (0x25a3 <= wc && wc <= 0x25a9) ||
+		    (0x25b2 <= wc && wc <= 0x25b3) ||
+		    wc == 0x25b6 ||
+		    wc == 0x25b7 ||
+		    (0x25bc <= wc && wc <= 0x25bd) ||
+		    wc == 0x25c0 ||
+		    wc == 0x25c1 ||
+		    (0x25c6 <= wc && wc <= 0x25c8) ||
+		    wc == 0x25cb ||
+		    (0x25ce <= wc && wc <= 0x25d1) ||
+		    (0x25e2 <= wc && wc <= 0x25e5) ||
+		    wc == 0x25ef ||
+		    (0x2605 <= wc && wc <= 0x2606) ||
+		    wc == 0x2609 ||
+		    (0x260e <= wc && wc <= 0x260f) ||
+		    wc == 0x261c ||
+		    wc == 0x261e ||
+		    wc == 0x2640 ||
+		    wc == 0x2642 ||
+		    (0x2660 <= wc && wc <= 0x2661) ||
+		    (0x2663 <= wc && wc <= 0x2665) ||
+		    (0x2667 <= wc && wc <= 0x266a) ||
+		    (0x266c <= wc && wc <= 0x266d) ||
+		    wc == 0x266f ||
+		    (0x269e <= wc && wc <= 0x269f) ||
+		    wc == 0x26bf ||
+		    (0x26c6 <= wc && wc <= 0x26cd) ||
+		    (0x26cf <= wc && wc <= 0x26d3) ||
+		    (0x26d5 <= wc && wc <= 0x26e1) ||
+		    wc == 0x26e3 ||
+		    (0x26e8 <= wc && wc <= 0x26e9) ||
+		    (0x26eb <= wc && wc <= 0x26f1) ||
+		    wc == 0x26f4 ||
+		    (0x26f6 <= wc && wc <= 0x26f9) ||
+		    (0x26fb <= wc && wc <= 0x26fc) ||
+		    (0x26fe <= wc && wc <= 0x26ff) ||
+		    wc == 0x273d ||
+		    (0x2776 <= wc && wc <= 0x277f) ||
+		    (0x2b56 <= wc && wc <= 0x2b59) ||
+		    (0x3248 <= wc && wc <= 0x324f) ||
+		    (0xe000 <= wc && wc <= 0xf8ff) ||
+		    (0xfe00 <= wc && wc <= 0xfe0f) ||
+		    wc == 0xfffd)
+			if (*width == 1)
+				*width = 2;
+	}
 	if (*width >= 0 && *width <= 0xff)
 		return (UTF8_DONE);
 	log_debug("UTF-8 %.*s, wcwidth() %d", (int)ud->size, ud->data, *width);

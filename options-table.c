@@ -77,6 +77,9 @@ static const char *options_table_detach_on_destroy_list[] = {
 static const char *options_table_extended_keys_list[] = {
 	"off", "on", "always", NULL
 };
+static const char *options_table_unicode_ambiguous_width_list[] = {
+	"narrow", "wide", NULL
+};
 
 /* Status line format. */
 #define OPTIONS_TABLE_STATUS_FORMAT1 \
@@ -972,6 +975,15 @@ const struct options_table_entry options_table[] = {
 	  .scope = OPTIONS_TABLE_WINDOW|OPTIONS_TABLE_PANE,
 	  .default_num = 0,
 	  .text = "Whether typing should be sent to all panes simultaneously."
+	},
+
+	{ .name = "unicode-ambiguous-width",
+	  .type = OPTIONS_TABLE_CHOICE,
+	  .scope = OPTIONS_TABLE_SERVER,
+	  .choices = options_table_unicode_ambiguous_width_list,
+	  .default_num = 0,
+	  .text = "Treat Unicode ambiguous-width characters as 'narrow' or"
+		  "'wide'. Also, use ASCII line-drawing characters if 'wide'."
 	},
 
 	{ .name = "window-active-style",
