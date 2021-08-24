@@ -1156,6 +1156,10 @@ options_push_changes(const char *name)
 		RB_FOREACH(wp, window_pane_tree, &all_window_panes)
 			wp->flags |= PANE_STYLECHANGED;
 	}
+	if (strcmp(name, "output-encoding") == 0) {
+		RB_FOREACH(wp, window_pane_tree, &all_window_panes)
+			input_encoding_updated(wp);
+	}
 	if (strcmp(name, "pane-colours") == 0) {
 		RB_FOREACH(wp, window_pane_tree, &all_window_panes)
 			colour_palette_from_option(&wp->palette, wp->options);
