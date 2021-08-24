@@ -805,6 +805,38 @@ if test "x$DEFAULT_TERM" = x; then
 fi
 AC_SUBST(DEFAULT_TERM)
 
+# Look for iconv.
+AC_MSG_CHECKING(for iconv)
+AC_TRY_LINK(
+	[
+		#include <iconv.h>
+	],
+	[iconv_open("tocode", "fromcode");],
+	found_iconv=yes,
+	found_iconv=no
+)
+if test "x$found_iconv" = xno; then
+	AC_MSG_RESULT(no)
+
+	AC_MSG_CHECKING(for iconv with -liconv)
+	LIBS="$LIBS -liconv"
+	AC_TRY_LINK(
+		[
+			#include <iconv.h>
+		],
+		[iconv_open("tocode", "fromcode");],
+		found_iconv=yes,
+		found_iconv=no
+	)
+	if test "x$found_iconv" = xno; then
+		AC_MSG_RESULT(no)
+		AC_MSG_ERROR("iconv not found")
+	fi
+fi
+if test "x$found_iconv" = xyes; then
+	AC_MSG_RESULT(yes)
+fi
+
 # Man page defaults to mdoc.
 MANFORMAT=mdoc
 AC_SUBST(MANFORMAT)
