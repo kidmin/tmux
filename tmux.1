@@ -4146,6 +4146,20 @@ but set the width of other panes in the
 .Ic main-vertical
 layout.
 .Pp
+.It Ic output-encoding Ar encoding
+Set output encoding.
+If this option is set to other than
+.Ql UTF-8
+(the default),
+.Nm
+tries to decode the terminal output from
+.Ar encoding
+with iconv(3).
+.Nm
+treats
+.Ar encoding
+as case-insensitive.
+.Pp
 .It Ic pane-active-border-style Ar style
 Set the pane border style for the currently active pane.
 For how to specify

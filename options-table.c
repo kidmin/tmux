@@ -910,6 +910,13 @@ const struct options_table_entry options_table[] = {
 		  "This may be a percentage, for example '10%'."
 	},
 
+	{ .name = "output-encoding",
+	  .type = OPTIONS_TABLE_STRING,
+	  .scope = OPTIONS_TABLE_WINDOW,
+	  .default_str = "UTF-8",
+	  .text = "Output encoding from a terminal."
+	},
+
 	{ .name = "pane-active-border-style",
 	  .type = OPTIONS_TABLE_STRING,
 	  .scope = OPTIONS_TABLE_WINDOW,
