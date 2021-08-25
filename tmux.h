@@ -2544,6 +2544,7 @@ void	 recalculate_sizes_now(int);
 struct input_ctx *input_init(struct window_pane *, struct bufferevent *);
 void	 input_free(struct input_ctx *);
 void	 input_reset(struct input_ctx *, int);
+void	 input_encoding_updated(struct window_pane *);
 struct evbuffer *input_pending(struct input_ctx *);
 void	 input_parse_pane(struct window_pane *);
 void	 input_parse_buffer(struct window_pane *, u_char *, size_t);
